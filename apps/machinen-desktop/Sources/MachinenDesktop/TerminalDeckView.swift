@@ -142,6 +142,8 @@ final class TerminalDeckView: NSView {
     private let spatialMinimapView = SpatialMinimapView()
     private let sessionStore: TerminalSessionStore
     private let sessionBackend: any TerminalSessionBackend
+    private let interactionIntentEngine: InteractionIntentEngine
+    private var interactionPolicySession: InteractionIntentPolicy?
     private var workspaces: [WorkspaceRecord]
     private var workspaceLocationHistory: [WorkspaceLocation]
     private var targetMachines: [TargetMachine]
@@ -224,10 +226,12 @@ final class TerminalDeckView: NSView {
     init(
         state: MachinenStoredState,
         sessionStore: TerminalSessionStore,
+        interactionIntentEngine: InteractionIntentEngine,
         sessionBackend: (any TerminalSessionBackend)? = nil
     ) {
         self.sessionStore = sessionStore
         self.sessionBackend = sessionBackend ?? TerminalSessionBackendFactory.backend
+        self.interactionIntentEngine = interactionIntentEngine
         workspaces = state.workspaces
         workspaceLocationHistory = state.workspaceLocationHistory
         targetMachines = state.targetMachines
@@ -1346,6 +1350,54 @@ final class TerminalDeckView: NSView {
         animation.completion?()
     }
 
+    private func prepareForInteractionIntent() -> Bool {
+        guard !isPeeking else { return false }
+        if isTransitioning {
+            cameraAnimationTimer?.invalidate()
+            cameraAnimationTimer = nil
+            if let cameraAnimation {
+                sceneView.bounds = cameraAnimation.target
+                sceneView.alphaValue = cameraAnimation.targetAlpha
+            }
+            cameraAnimation = nil
+            isTransitioning = false
+            sceneView.alphaValue = 1
+            endSpatialMinimapAnimation()
+        }
+        return true
+    }
+
+    private func moveCameraForPolicy(
+        _ policy: InteractionIntentPolicy.Camera,
+        to destination: NSRect,
+        completion: (@MainActor () -> Void)? = nil
+    ) {
+        if policy == .none || cameraBoundsMatch(sceneView.bounds, destination) {
+            completion?()
+            return
+        }
+        let intentPolicy = interactionPolicySession ?? interactionIntentEngine.snapshot()
+        moveCamera(
+            to: destination,
+            duration: TimeInterval(intentPolicy.cameraDurationMilliseconds) / 1_000,
+            completion: completion
+        )
+    }
+
+    private func cameraDestination(
+        for policy: InteractionIntentPolicy.Camera,
+        direct destination: NSRect
+    ) -> NSRect {
+        policy == .parentLevel ? currentCameraBounds() : destination
+    }
+
+    private func cameraBoundsMatch(_ left: NSRect, _ right: NSRect) -> Bool {
+        abs(left.minX - right.minX) < 0.5
+            && abs(left.minY - right.minY) < 0.5
+            && abs(left.width - right.width) < 0.5
+            && abs(left.height - right.height) < 0.5
+    }
+
     private func cameraAnimationProgress(_ linearProgress: CGFloat) -> CGFloat {
         var lower: CGFloat = 0
         var upper: CGFloat = 1
@@ -1988,6 +2040,13 @@ final class TerminalDeckView: NSView {
         guard (0..<activeCount).contains(index), focusedIndex == nil,
               commandPalette == nil, !isTransitioning
         else { return }
+        if mapEditOverlay != nil, currentWorkspace == nil,
+           workspaceClusters.indices.contains(index),
+           workspaceClusters[index].renderingMode == .workspace
+        {
+            _ = enterWorkspaceDuringMapEdit(at: index)
+            return
+        }
         select(index)
         clearLabelBuffer()
 
@@ -2728,6 +2787,20 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private var currentInteractionLevel: InteractionIntentPolicy.Level {
+        if focusedIndex != nil { return .terminal }
+        if currentWorkspace != nil { return .workspace }
+        return .overview
+    }
+
+    private func interactionRule(
+        for intent: InteractionIntentPolicy.Intent,
+        at level: InteractionIntentPolicy.Level? = nil
+    ) -> InteractionIntentPolicy.Rule? {
+        let policy = interactionPolicySession ?? interactionIntentEngine.snapshot()
+        return policy.rule(for: intent, at: level ?? currentInteractionLevel)
+    }
+
     private var commandPaletteContext: String {
         switch currentCommandSpace {
         case .workspaceOverview:
@@ -2740,16 +2813,20 @@ final class TerminalDeckView: NSView {
     }
 
     func toggleMapEditOverlay() {
-        guard !isTransitioning, !isPeeking else { return }
         if mapEditOverlay != nil {
             dismissMapEditOverlay()
             return
         }
-        presentMapEditOverlay()
+        guard prepareForInteractionIntent(),
+              let rule = interactionRule(for: .edit),
+              rule.panel == .none, rule.effect == .none
+        else { return }
+        presentMapEditOverlay(cameraPolicy: rule.camera)
     }
 
     @discardableResult
     private func presentMapEditOverlay(
+        cameraPolicy: InteractionIntentPolicy.Camera,
         onPresented: (@MainActor () -> Void)? = nil,
         onReady: (@MainActor () -> Void)? = nil
     ) -> Bool {
@@ -2758,7 +2835,12 @@ final class TerminalDeckView: NSView {
               availableSessionsView == nil
         else { return false }
 
-        mapEditReturnState = currentMapEditReturnState()
+        if interactionPolicySession == nil {
+            interactionPolicySession = interactionIntentEngine.snapshot()
+        }
+        if mapEditReturnState == nil {
+            mapEditReturnState = currentMapEditReturnState()
+        }
         if focusedIndex != nil {
             focusedIndex = nil
             updateSelection()
@@ -2802,7 +2884,6 @@ final class TerminalDeckView: NSView {
             addWorkspaceClusterView = addCluster
             installEditWorkspaceCluster(addCluster)
             updateWorldGeometry()
-            setCameraImmediately()
 
             for cluster in workspaceClusters where cluster.renderingMode == .workspace {
                 let frame = cluster.convert(cluster.bounds, to: self)
@@ -2826,8 +2907,9 @@ final class TerminalDeckView: NSView {
         addSubview(overlay, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(overlay)
         onPresented?()
-        if movesToWorkspaceMap {
-            moveCamera { [weak self, weak overlay] in
+        if cameraPolicy != .none {
+            moveCameraForPolicy(cameraPolicy, to: currentCameraBounds()) {
+                [weak self, weak overlay] in
                 guard let self, let overlay, self.mapEditOverlay === overlay else { return }
                 onReady?()
             }
@@ -2837,28 +2919,43 @@ final class TerminalDeckView: NSView {
         return true
     }
 
-    private func selectMapEditCreationTile() {
+    private func selectMapEditTarget(_ target: InteractionIntentPolicy.Target) {
         let index: Int?
-        if currentWorkspace == nil {
+        switch target {
+        case .addWorkspace:
             index = workspaceClusters.firstIndex { $0.renderingMode == .newWorkspace }
-        } else {
+        case .addTerminal:
             index = activeSessionTiles.firstIndex { $0.renderingMode == .newTerminal }
+        case .currentWorkspace, .currentTerminal:
+            return
         }
         guard let index else { return }
         select(index)
     }
 
-    private func activateMapEditCreationTile() {
-        guard mapEditOverlay != nil, addWorkspaceCardView == nil else { return }
-        let index: Int?
-        if currentWorkspace == nil {
-            index = workspaceClusters.firstIndex { $0.renderingMode == .newWorkspace }
-        } else {
-            index = activeSessionTiles.firstIndex { $0.renderingMode == .newTerminal }
+    private func activateMapEditCreationTarget(
+        _ target: InteractionIntentPolicy.Target,
+        cameraPolicy: InteractionIntentPolicy.Camera
+    ) {
+        guard mapEditOverlay != nil, addWorkspaceCardView == nil,
+              addTerminalCardView == nil
+        else { return }
+        switch target {
+        case .addWorkspace:
+            guard let cluster = workspaceClusters.first(where: {
+                $0.renderingMode == .newWorkspace
+            }) else { return }
+            selectMapEditTarget(target)
+            beginInlineWorkspaceCreation(in: cluster, cameraPolicy: cameraPolicy)
+        case .addTerminal:
+            guard let tile = activeSessionTiles.first(where: {
+                $0.renderingMode == .newTerminal
+            }) else { return }
+            selectMapEditTarget(target)
+            beginInlineTerminalCreation(in: tile, cameraPolicy: cameraPolicy)
+        case .currentWorkspace, .currentTerminal:
+            return
         }
-        guard let index else { return }
-        select(index)
-        activate(index)
     }
 
     private func installEditTerminalTile() {
@@ -2928,6 +3025,16 @@ final class TerminalDeckView: NSView {
     private func dismissMapEditOverlay(restorePreviousView: Bool = true) {
         let returnState = mapEditReturnState
         mapEditReturnState = nil
+        interactionPolicySession = nil
+        removeMapEditPresentation()
+        if restorePreviousView, let returnState {
+            restoreMapEditReturnState(returnState)
+        } else {
+            restoreInputFocus()
+        }
+    }
+
+    private func removeMapEditPresentation() {
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
         addTerminalCardView?.removeFromSuperview()
@@ -2938,11 +3045,33 @@ final class TerminalDeckView: NSView {
         addTerminalTileView?.removeFromSuperview()
         addTerminalTileView = nil
         removeEditWorkspaceClusters()
-        if restorePreviousView, let returnState {
-            restoreMapEditReturnState(returnState)
-        } else {
-            restoreInputFocus()
-        }
+    }
+
+    private func enterWorkspaceDuringMapEdit(at index: Int) -> Bool {
+        guard mapEditOverlay != nil, currentWorkspace == nil,
+              workspaceClusters.indices.contains(index)
+        else { return false }
+        let cluster = workspaceClusters[index]
+        guard cluster.renderingMode == .workspace else { return false }
+        let workspaceID = cluster.workspaceID
+        removeMapEditPresentation()
+        currentWorkspace = workspaceID
+        focusedIndex = nil
+        selectedIndex = activeTerminalIndex(in: workspaceID)
+        updateSelection()
+        return presentMapEditOverlay(cameraPolicy: .directIfNeeded)
+    }
+
+    private func leaveWorkspaceDuringMapEdit() -> Bool {
+        guard mapEditOverlay != nil, let workspaceID = currentWorkspace else { return false }
+        removeMapEditPresentation()
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = workspaceClusters.firstIndex(where: {
+            $0.workspaceID == workspaceID
+        }) ?? 0
+        updateSelection()
+        return presentMapEditOverlay(cameraPolicy: .directIfNeeded)
     }
 
     private func restoreMapEditReturnState(_ state: MapEditReturnState) {
@@ -2980,7 +3109,6 @@ final class TerminalDeckView: NSView {
             : activeSessionTiles.count
         selectedIndex = min(selectedIndex, max(0, remainingCount - 1))
         updateWorldGeometry()
-        setCameraImmediately()
     }
 
     private func runMapEditAction(_ action: MapEditAction) {
@@ -3016,7 +3144,10 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func beginInlineWorkspaceCreation(in cluster: WorkspaceClusterView) {
+    private func beginInlineWorkspaceCreation(
+        in cluster: WorkspaceClusterView,
+        cameraPolicy: InteractionIntentPolicy.Camera = .directIfNeeded
+    ) {
         mapEditOverlay?.isHidden = true
         let addCard = AddWorkspaceCardView(frame: cluster.bounds)
         addCard.autoresizingMask = [.width, .height]
@@ -3067,8 +3198,9 @@ final class TerminalDeckView: NSView {
         // Route immediate arrow input to the in-card form before camera motion.
         // Without this, fast input changes the selected overview workspace.
         window?.makeFirstResponder(addCard)
-        let destination = cameraBounds(for: cluster.frame, viewport: sceneViewportBounds)
-        moveCamera(to: destination) { [weak self, weak addCard] in
+        let directDestination = cameraBounds(for: cluster.frame, viewport: sceneViewportBounds)
+        let destination = cameraDestination(for: cameraPolicy, direct: directDestination)
+        moveCameraForPolicy(cameraPolicy, to: destination) { [weak self, weak addCard] in
             guard let self, let addCard else { return }
             self.window?.makeFirstResponder(addCard)
         }
@@ -3094,7 +3226,10 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func beginInlineTerminalCreation(in tile: TerminalTileView) {
+    private func beginInlineTerminalCreation(
+        in tile: TerminalTileView,
+        cameraPolicy: InteractionIntentPolicy.Camera = .directIfNeeded
+    ) {
         guard addTerminalCardView == nil,
               let workspace = selectedWorkspaceRecord()
         else { return }
@@ -3130,8 +3265,9 @@ final class TerminalDeckView: NSView {
 
         window?.makeFirstResponder(addCard)
         let tileFrame = tile.convert(tile.bounds, to: sceneView)
-        let destination = cameraBounds(for: tileFrame, viewport: sceneViewportBounds)
-        moveCamera(to: destination) { [weak self, weak addCard] in
+        let directDestination = cameraBounds(for: tileFrame, viewport: sceneViewportBounds)
+        let destination = cameraDestination(for: cameraPolicy, direct: directDestination)
+        moveCameraForPolicy(cameraPolicy, to: destination) { [weak self, weak addCard] in
             guard let self, let addCard else { return }
             self.window?.makeFirstResponder(addCard)
         }
@@ -3153,14 +3289,18 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func selectInlineRemovalTarget(workspaceID: String?, tileID: String?) {
-        if currentWorkspace == nil, let workspaceID,
+    private func selectInlineRemovalTarget(
+        _ target: InteractionIntentPolicy.Target,
+        workspaceID: String?,
+        tileID: String?
+    ) {
+        if target == .currentWorkspace, currentWorkspace == nil, let workspaceID,
            let index = workspaceClusters.firstIndex(where: {
                $0.workspaceID == workspaceID && $0.renderingMode == .workspace
            })
         {
             select(index)
-        } else if currentWorkspace != nil {
+        } else if target == .currentTerminal, currentWorkspace != nil {
             let index = tileID.flatMap { tileID in
                 activeSessionTiles.firstIndex(where: {
                     $0.session.tileID == tileID && $0.renderingMode == .terminal
@@ -3170,7 +3310,9 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func beginInlineRemoval() {
+    private func beginInlineRemoval(
+        cameraPolicy: InteractionIntentPolicy.Camera = .directIfNeeded
+    ) {
         if currentWorkspace == nil {
             guard workspaceClusters.indices.contains(selectedIndex) else { return }
             let cluster = workspaceClusters[selectedIndex]
@@ -3180,6 +3322,7 @@ final class TerminalDeckView: NSView {
             let count = persistedSessionTiles.count { $0.session.workspaceID == workspace.id }
             presentInlineConfirmation(
                 in: cluster,
+                cameraPolicy: cameraPolicy,
                 heading: "Close workspace \(workspace.name)?",
                 message: "This terminates \(count) terminal \(count == 1 ? "process" : "processes") and removes the workspace from Machinen.",
                 consequence: "Files in the terminals' working directories are not deleted.",
@@ -3196,6 +3339,7 @@ final class TerminalDeckView: NSView {
         guard tile.renderingMode == .terminal else { return }
         presentInlineConfirmation(
             in: tile,
+            cameraPolicy: cameraPolicy,
             heading: "Disconnect terminal \(tile.session.name)?",
             message: "This removes the terminal tile and disconnects its viewer.",
             consequence: "The native session, PTY, and process continue running and remain available for reconnection.",
@@ -3208,6 +3352,7 @@ final class TerminalDeckView: NSView {
 
     private func presentInlineConfirmation(
         in host: NSView,
+        cameraPolicy: InteractionIntentPolicy.Camera,
         heading: String,
         message: String,
         consequence: String,
@@ -3238,8 +3383,9 @@ final class TerminalDeckView: NSView {
         host.addSubview(confirmation)
         window?.makeFirstResponder(confirmation)
         let hostFrame = host.convert(host.bounds, to: sceneView)
-        let destination = cameraBounds(for: hostFrame, viewport: sceneViewportBounds)
-        moveCamera(to: destination) { [weak self, weak confirmation] in
+        let directDestination = cameraBounds(for: hostFrame, viewport: sceneViewportBounds)
+        let destination = cameraDestination(for: cameraPolicy, direct: directDestination)
+        moveCameraForPolicy(cameraPolicy, to: destination) { [weak self, weak confirmation] in
             guard let self, let confirmation else { return }
             self.window?.makeFirstResponder(confirmation)
         }
@@ -3255,6 +3401,17 @@ final class TerminalDeckView: NSView {
             guard let self, let overlay = self.mapEditOverlay else { return }
             self.window?.makeFirstResponder(overlay)
         }
+    }
+
+    private func clearInlineMapPanelForIntent() {
+        addWorkspaceCardView?.removeFromSuperview()
+        addWorkspaceCardView = nil
+        addTerminalCardView?.removeFromSuperview()
+        addTerminalCardView = nil
+        if presentedOverlay === inlineConfirmationView { presentedOverlay = nil }
+        inlineConfirmationView?.removeFromSuperview()
+        inlineConfirmationView = nil
+        mapEditOverlay?.isHidden = false
     }
 
     func toggleCommandPalette() {
@@ -6228,6 +6385,9 @@ final class TerminalDeckView: NSView {
             }
             return inlineConfirmationView.performShortcut(action)
         }
+        if mapEditOverlay != nil, action == .leave, currentWorkspace != nil {
+            return leaveWorkspaceDuringMapEdit()
+        }
         switch action {
         case .enter:
             return zoomInOneLevel()
@@ -6478,14 +6638,23 @@ final class TerminalDeckView: NSView {
     }
 
     func createNewWorkspaceOrTerminal() {
+        guard prepareForInteractionIntent() else { return }
+        clearInlineMapPanelForIntent()
+        guard let rule = interactionRule(for: .new),
+              (rule.panel == .newWorkspace && rule.effect == .createWorkspace)
+                || (rule.panel == .newTerminal && rule.effect == .createTerminal)
+        else { return }
         if mapEditOverlay != nil {
-            selectMapEditCreationTile()
-            activateMapEditCreationTile()
+            selectMapEditTarget(rule.target)
+            activateMapEditCreationTarget(rule.target, cameraPolicy: rule.camera)
             return
         }
         presentMapEditOverlay(
-            onPresented: { [weak self] in self?.selectMapEditCreationTile() },
-            onReady: { [weak self] in self?.activateMapEditCreationTile() }
+            cameraPolicy: .none,
+            onPresented: { [weak self] in self?.selectMapEditTarget(rule.target) },
+            onReady: { [weak self] in
+                self?.activateMapEditCreationTarget(rule.target, cameraPolicy: rule.camera)
+            }
         )
     }
 
@@ -6502,12 +6671,17 @@ final class TerminalDeckView: NSView {
             availableSessionsView.killSelected()
             return
         }
-        if presentedOverlay != nil { return }
+        if presentedOverlay != nil, inlineConfirmationView == nil { return }
         if commandPalette != nil {
             dismissCommandPalette()
             return
         }
-        guard !isTransitioning, !isPeeking else { return }
+        guard prepareForInteractionIntent() else { return }
+        clearInlineMapPanelForIntent()
+        guard let rule = interactionRule(for: .close),
+              (rule.panel == .closeWorkspace && rule.effect == .closeWorkspace)
+                || (rule.panel == .disconnectTerminal && rule.effect == .disconnectTerminal)
+        else { return }
         let workspaceID = currentWorkspace == nil ? selectedWorkspaceID() : currentWorkspace
         let tileID = currentWorkspace == nil
             ? nil
@@ -6515,15 +6689,22 @@ final class TerminalDeckView: NSView {
                 tile.renderingMode == .terminal ? tile.session.tileID : nil
             }
         if mapEditOverlay != nil {
-            selectInlineRemovalTarget(workspaceID: workspaceID, tileID: tileID)
-            beginInlineRemoval()
+            selectInlineRemovalTarget(rule.target, workspaceID: workspaceID, tileID: tileID)
+            beginInlineRemoval(cameraPolicy: rule.camera)
             return
         }
         presentMapEditOverlay(
+            cameraPolicy: .none,
             onPresented: { [weak self] in
-                self?.selectInlineRemovalTarget(workspaceID: workspaceID, tileID: tileID)
+                self?.selectInlineRemovalTarget(
+                    rule.target,
+                    workspaceID: workspaceID,
+                    tileID: tileID
+                )
             },
-            onReady: { [weak self] in self?.beginInlineRemoval() }
+            onReady: { [weak self] in
+                self?.beginInlineRemoval(cameraPolicy: rule.camera)
+            }
         )
     }
 

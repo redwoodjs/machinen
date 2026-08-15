@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var desktopServicesSupervisor: DesktopServicesSupervisor?
     private var commandChord: CommandChord?
     private var desktopShortcutMonitor: DesktopShortcutMonitor?
+    private var interactionIntentEngine: InteractionIntentEngine?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         InputRoutingLog.start()
@@ -16,7 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         installMainMenu()
 
         let sessionStore = TerminalSessionStore()
-        let deck = TerminalDeckView(state: sessionStore.load(), sessionStore: sessionStore)
+        let interactionIntentEngine = InteractionIntentEngine(url: InteractionIntentEngine.defaultURL)
+        self.interactionIntentEngine = interactionIntentEngine
+        let deck = TerminalDeckView(
+            state: sessionStore.load(),
+            sessionStore: sessionStore,
+            interactionIntentEngine: interactionIntentEngine
+        )
         self.deck = deck
         let controller = MachinenController(deck: deck)
         let apiServer = MachinenAPIServer(controller: controller)
@@ -80,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         desktopShortcutMonitor?.stop()
+        interactionIntentEngine?.stopWatching()
         apiServer?.stop()
         desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
@@ -132,6 +140,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsItem.keyEquivalentModifierMask = [.command]
         settingsItem.target = self
         appMenu.addItem(settingsItem)
+        let interactionPolicyItem = NSMenuItem(
+            title: "Open Interaction Policy",
+            action: #selector(openInteractionPolicyFile),
+            keyEquivalent: ""
+        )
+        interactionPolicyItem.target = self
+        appMenu.addItem(interactionPolicyItem)
         appMenu.addItem(.separator())
 
         let newWorkspaceItem = NSMenuItem(
@@ -329,6 +344,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         _ = MachinenConfiguration.load(from: url)
         guard NSWorkspace.shared.open(url) else {
             NSLog("Machinen could not open settings file at %@", url.path)
+            return
+        }
+    }
+
+    @objc private func openInteractionPolicyFile() {
+        let url = interactionIntentEngine?.policyURL ?? InteractionIntentEngine.defaultURL
+        guard NSWorkspace.shared.open(url) else {
+            NSLog("Machinen could not open interaction policy at %@", url.path)
             return
         }
     }

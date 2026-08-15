@@ -13,6 +13,7 @@ enum InteractionTestRunner {
                 return 0
             }
             try commandNEntersCreationTile()
+            try interactionPolicyReloadsWithoutAppRebuild()
             try mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
             try settingsFileIsAvailableInApplicationMenu()
@@ -51,7 +52,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (39 scenarios)")
+            print("Machinen interaction tests passed (40 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -111,7 +112,6 @@ enum InteractionTestRunner {
             "the New Terminal tile created its terminal in the wrong workspace"
         )
 
-        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
         let focusedBeforeCancel = try harness.focusedTileID(of: deck)
         deck.createNewWorkspaceOrTerminal()
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
@@ -159,6 +159,101 @@ enum InteractionTestRunner {
             "⌘N did not select and enter the New Workspace tile"
         )
         try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
+    }
+
+    private static func interactionPolicyReloadsWithoutAppRebuild() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-policy-tests-\(UUID().uuidString)")
+        let policyURL = directory.appendingPathComponent("interactions.json")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = InteractionIntentEngine(
+            url: policyURL,
+            watch: true,
+            reloadInterval: 0.02
+        )
+        defer { engine.stopWatching() }
+
+        try expect(
+            FileManager.default.fileExists(atPath: policyURL.path),
+            "the intent engine did not create its reloadable policy file"
+        )
+        let original = engine.snapshot()
+        try expect(
+            original.rule(for: .close, at: .terminal)?.camera == InteractionIntentPolicy.Camera.none,
+            "the default terminal close rule requested camera motion"
+        )
+
+        let changedRules = original.rules.map { rule in
+            guard rule.level == .terminal, rule.intent == .close else { return rule }
+            return InteractionIntentPolicy.Rule(
+                level: rule.level,
+                intent: rule.intent,
+                target: rule.target,
+                panel: rule.panel,
+                camera: .directIfNeeded,
+                effect: rule.effect
+            )
+        }
+        let changed = InteractionIntentPolicy(
+            version: 1,
+            cameraDurationMilliseconds: 120,
+            rules: changedRules
+        )
+        try InteractionIntentEngine.encodedPolicy(changed).write(to: policyURL, options: .atomic)
+        let changedDeadline = Date().addingTimeInterval(1)
+        while engine.snapshot() != changed, Date() < changedDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        try expect(
+            engine.snapshot() == changed,
+            "the intent engine did not reload a valid policy change"
+        )
+
+        let pinnedSession = engine.snapshot()
+        try InteractionIntentEngine.encodedPolicy(original).write(to: policyURL, options: .atomic)
+        let restoredDeadline = Date().addingTimeInterval(1)
+        while engine.snapshot() != original, Date() < restoredDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        try expect(
+            engine.snapshot() == original
+                && pinnedSession.rule(for: .close, at: .terminal)?.camera == .directIfNeeded,
+            "a policy reload changed an active policy snapshot"
+        )
+
+        let acceptedGeneration = engine.generation
+        let unsafeRules = original.rules.map { rule in
+            guard rule.level == .terminal, rule.intent == .close else { return rule }
+            return InteractionIntentPolicy.Rule(
+                level: rule.level,
+                intent: rule.intent,
+                target: .addTerminal,
+                panel: .newTerminal,
+                camera: rule.camera,
+                effect: .createTerminal
+            )
+        }
+        let unsafePolicy = InteractionIntentPolicy(
+            version: 1,
+            cameraDurationMilliseconds: 200,
+            rules: unsafeRules
+        )
+        try InteractionIntentEngine.encodedPolicy(unsafePolicy).write(
+            to: policyURL,
+            options: .atomic
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.10))
+        try expect(
+            engine.generation == acceptedGeneration && engine.snapshot() == original,
+            "an unsafe action shape replaced the last valid policy"
+        )
+
+        try Data("{ invalid policy".utf8).write(to: policyURL, options: .atomic)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.10))
+        try expect(
+            engine.generation == acceptedGeneration && engine.snapshot() == original,
+            "an invalid policy replaced the last valid policy"
+        )
     }
 
     private static func mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard() throws {
@@ -415,6 +510,33 @@ enum InteractionTestRunner {
                 && workspaceEditTile?.session.workspaceID == "ws_switch-beta",
             "the New Terminal tile did not follow the workspace switch"
         )
+        try expect(switchDeck.performShortcut(.leave),
+                   "workspace edit did not navigate to the edit overview")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let overviewAddTile = switchDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .first(where: { $0.renderingMode == .newWorkspace })
+        try expect(
+            try harness.uiLevel(of: switchDeck) == "overview"
+                && overviewAddTile != nil
+                && switchDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "edit mode did not expose workspace actions after overview navigation"
+        )
+        try expect(switchDeck.performShortcut(.enter),
+                   "the edit overview did not enter its selected workspace")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let returnedTerminalTile = switchDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        try expect(
+            try harness.uiLevel(of: switchDeck) == "workspace"
+                && returnedTerminalTile?.session.workspaceID == "ws_switch-beta",
+            "edit mode did not expose terminal actions after workspace navigation"
+        )
         switchDeck.toggleMapEditOverlay()
         RunLoop.current.run(until: Date().addingTimeInterval(0.30))
         try expect(
@@ -560,6 +682,14 @@ enum InteractionTestRunner {
             settingsItem?.keyEquivalent == ","
                 && settingsItem?.keyEquivalentModifierMask == [.command],
             "the settings menu item did not use the standard ⌘, shortcut"
+        )
+        let policyItem = appMenu?.items.first(where: {
+            $0.title == "Open Interaction Policy"
+        })
+        try expect(
+            policyItem?.action == NSSelectorFromString("openInteractionPolicyFile")
+                && policyItem?.target === delegate,
+            "the application menu did not expose the interaction policy"
         )
         let newItems = appMenu?.items.filter {
             $0.action == NSSelectorFromString("createNewWorkspaceOrTerminal")
@@ -1042,7 +1172,15 @@ enum InteractionTestRunner {
             !minimap.isHidden && minimap.alphaValue > 0.99,
             "the workspace minimap faded before its hold completed"
         )
-        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
+        let statusMinimapDeadline = Date().addingTimeInterval(2)
+        while Date() < statusMinimapDeadline,
+              !(minimap.isHidden && !statusMinimap.isHidden
+                && statusMinimap.representedWorkspaces.contains(where: {
+                    $0.id == "ws_beta" && $0.isActive
+                }))
+        {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
         try expect(
             minimap.isHidden && !statusMinimap.isHidden
                 && statusMinimap.representedWorkspaces.contains(where: {
@@ -2843,6 +2981,7 @@ enum InteractionTestRunner {
             sessionStore: TerminalSessionStore(
                 manifestURL: directory.appendingPathComponent("terminals.json")
             ),
+            interactionIntentEngine: InteractionIntentEngine(),
             sessionBackend: ImmediateViewerBackend(workingDirectory: directory.path)
         )
         let window = NSWindow(
@@ -3969,6 +4108,7 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 private final class Harness {
     private let temporaryDirectory: URL
     private let terminalBackend = DeferredViewerBackend()
+    private let interactionIntentEngine = InteractionIntentEngine()
     var temporaryDirectoryPath: String { temporaryDirectory.path }
     var backend: DeferredViewerBackend { terminalBackend }
 
@@ -4004,6 +4144,7 @@ private final class Harness {
         TerminalDeckView(
             state: state,
             sessionStore: sessionStore(),
+            interactionIntentEngine: interactionIntentEngine,
             sessionBackend: terminalBackend
         )
     }

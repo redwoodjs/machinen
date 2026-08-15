@@ -54,6 +54,17 @@ Restart Desktop after editing it. A shortcut can combine
 Tab, Space, Delete, or Escape. An invalid entry keeps that action's default
 shortcut and writes an explanation to the macOS log.
 
+## Configure interaction intents
+
+Desktop creates `~/.config/machinen/interactions.json` on first launch. Choose
+**Machinen → Open Interaction Policy** to open it. Desktop reloads valid changes
+automatically. No rebuild or restart is necessary.
+
+Each rule maps an overview, workspace, or terminal intent to a tile target,
+inline panel, camera policy, and approved effect. Invalid changes never replace
+the last valid policy. An active edit session keeps its initial policy version.
+The next session uses the new version.
+
 ## Run
 
 ```sh

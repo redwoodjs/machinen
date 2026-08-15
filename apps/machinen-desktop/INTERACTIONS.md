@@ -57,6 +57,21 @@ first launch and adds new defaults to older files. The actions are `enter`,
 `moveRight`, `moveDown`, `moveUp`, `previousPane`, `nextPane`,
 `previousWorkspace`, and `nextWorkspace`. The file is read when Desktop starts.
 
+Machinen writes its intent policy to `~/.config/machinen/interactions.json`.
+The application menu can open this file. Desktop reloads valid changes without a
+rebuild or restart. Each rule maps a level and `edit`, `new`, or `close` intent
+to a spatial target, inline panel, camera policy, and approved native effect.
+The engine rejects duplicate rules, missing rules, unknown values, and panel or
+effect mismatches. It keeps the last valid policy after an error. An active edit
+session retains the policy version that opened it. The next edit session uses
+the new version.
+
+The engine supports `none`, `directIfNeeded`, and `parentLevel` camera policies.
+`cameraDurationMilliseconds` changes the shared transition time. One rule supplies
+one final camera target. `directIfNeeded` skips motion when the
+camera already matches that target. Native Swift code retains Escape restoration,
+destructive verification, effect approval, and workspace ownership checks.
+
 ## Input modes
 
 - **Navigate mode:** no terminal is focused. It has two camera levels:
@@ -375,8 +390,11 @@ containing workspace. It then adds the New Terminal tile. The terminal count doe
 not change this rule.
 
 In workspace mode, `⇧⌘[` and `⇧⌘]` move to the previous or next workspace. The
-camera stays at the workspace level, and the workspace list wraps. Machinen exits
-map edit mode after any new terminal tile enters the workspace. Detach and Kill
+camera stays at the workspace level, and the workspace list wraps. A hierarchy
+change keeps edit mode active. The overview replaces terminal actions with Add
+Workspace and workspace removal actions. Entry into a workspace restores New
+Terminal and terminal actions without terminal focus. Machinen exits map edit
+mode after any new terminal tile enters the workspace. Detach and Kill
 remain available through normal terminal commands. Escape, `⌘E`, and `⇧⌘E` close
 the overlay. They restore the workspace, tile selection, terminal focus, and map
 level that opened edit mode.
