@@ -2991,7 +2991,7 @@ final class TerminalDeckView: NSView {
             guard let self, let tile,
                   let index = self.activeSessionTiles.firstIndex(where: { $0 === tile })
             else { return }
-            self.select(index)
+            self.activate(index)
         }
         tile.onActivate = { [weak self, weak tile] _ in
             guard let self, let tile,
@@ -3007,7 +3007,7 @@ final class TerminalDeckView: NSView {
             guard let self, let cluster,
                   let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
             else { return }
-            self.select(index)
+            self.activate(index)
         }
         cluster.onActivate = { [weak self, weak cluster] in
             guard let self, let cluster,

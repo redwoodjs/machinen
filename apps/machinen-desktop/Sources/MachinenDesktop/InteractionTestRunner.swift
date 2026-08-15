@@ -289,10 +289,7 @@ enum InteractionTestRunner {
                    "the overview edit map still showed the Add Host action")
         try expect(deck.window?.firstResponder === overlay,
                    "the overview edit map did not capture selection keys")
-        try expect(deck.performShortcut(.selectDown),
-                   "the overview shortcut did not move from a workspace to the add tile")
-        try expect(deck.performShortcut(.enter),
-                   "the overview shortcut did not enter the add workspace tile")
+        try harness.click(addCluster, in: window)
         guard let firstAddCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
             as? AddWorkspaceCardView
         else {
@@ -414,22 +411,20 @@ enum InteractionTestRunner {
         )
         singletonDeck.toggleMapEditOverlay()
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
-        try expect(
-            singletonDeck.performShortcut(.selectRight)
-                && singletonDeck.performShortcut(.enter),
-            "the New Terminal tile did not use ordinary tile activation"
-        )
         guard let activeNewTerminalTile = singletonDeck.subviews.lazy
             .flatMap(\.subviews)
             .compactMap({ $0 as? WorkspaceClusterView })
             .flatMap(\.subviews)
             .compactMap({ $0 as? TerminalTileView })
-            .first(where: { $0.renderingMode == .newTerminal }),
-              let terminalCard = activeNewTerminalTile.subviews.first(where: {
-                  $0 is AddTerminalCardView
-              })
+            .first(where: { $0.renderingMode == .newTerminal })
         else {
-            throw InteractionTestFailure("the New Terminal tile did not open inline terminal creation")
+            throw InteractionTestFailure("terminal edit did not show the New Terminal tile")
+        }
+        try harness.click(activeNewTerminalTile, in: singletonWindow)
+        guard let terminalCard = activeNewTerminalTile.subviews.first(where: {
+            $0 is AddTerminalCardView
+        }) else {
+            throw InteractionTestFailure("one click did not open inline terminal creation")
         }
         try harness.pressReturn(on: terminalCard)
         try expect(
@@ -4300,6 +4295,40 @@ private final class Harness {
     func terminalTile(in view: NSView) -> TerminalTileView? {
         if let tile = view as? TerminalTileView { return tile }
         return view.subviews.lazy.compactMap(terminalTile).first
+    }
+
+    func click(_ view: NSView, in window: NSWindow) throws {
+        let point = view.convert(
+            NSPoint(x: view.bounds.midX, y: view.bounds.midY),
+            to: nil
+        )
+        guard let down = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: point,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        ),
+            let up = NSEvent.mouseEvent(
+                with: .leftMouseUp,
+                location: point,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            )
+        else {
+            throw InteractionTestFailure("could not create a tile click event")
+        }
+        view.mouseDown(with: down)
+        view.mouseUp(with: up)
     }
 
     func snapshot(of deck: TerminalDeckView) throws -> InteractionSnapshot {

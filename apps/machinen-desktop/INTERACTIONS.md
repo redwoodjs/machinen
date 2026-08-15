@@ -381,11 +381,12 @@ A muted dashed ghost card represents a discovered workspace that is not attached
 to this Desktop. Existing, ghost, and Add Workspace cards are ordinary workspace
 tiles. The latter two use alternate tile rendering modes. All tiles use the same
 layout, selection state, configured spatial shortcuts, mouse input, and Return
-action. A double-click does the same. Select a ghost card to attach its workspace.
+action. One click enters a creation tile. A double-click does the same. Select a
+ghost card to attach its workspace.
 
 At the workspace level, `⌘E` or `⇧⌘E` keeps the workspace visible. A blue dashed
-**New Terminal** tile uses the ordinary tile layout and input. Return enters a
-centered blue creation panel inside that tile. The overlay offers **Rename Workspace** and **Close
+**New Terminal** tile uses the ordinary tile layout and input. One click or
+Return enters a centered blue creation panel inside that tile. The overlay offers **Rename Workspace** and **Close
 Workspace**. In terminal mode, the same shortcut always moves one level to the
 containing workspace. It then adds the New Terminal tile. The terminal count does
 not change this rule.
