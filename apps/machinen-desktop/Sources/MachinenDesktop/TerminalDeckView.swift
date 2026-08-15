@@ -132,8 +132,16 @@ final class TerminalDeckView: NSView {
         var vertical: CGFloat = 0
     }
 
+    private struct DirectTrackpadSwipe {
+        let fingerCount: Int
+        let start: NSPoint
+        var didTrigger = false
+    }
+
     private enum CameraSwipe {
         static let twoFingerThreshold: CGFloat = 42
+        static let directTouchThreshold: CGFloat = 0.045
+        static let duplicateSuppressionDuration: TimeInterval = 0.30
     }
 
     private struct MapEditReturnState {
@@ -206,6 +214,9 @@ final class TerminalDeckView: NSView {
     private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
     private var twoFingerCameraSwipe: TwoFingerCameraSwipe?
+    private var directTrackpadSwipe: DirectTrackpadSwipe?
+    private var gestureEventMonitor: Any?
+    private var suppressGestureEventsUntil: TimeInterval = 0
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var effectiveStatusWidgets: [MachinenStatusWidget] = []
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -327,6 +338,8 @@ final class TerminalDeckView: NSView {
         statusBarView.onMouseDown = { [weak self] in
             self?.restoreInputFocus()
         }
+        allowedTouchTypes = [.indirect]
+        wantsRestingTouches = true
         enterSoleTerminalIfNeeded()
         updateSelection()
         refreshRegisteredTargets(force: true)
@@ -340,13 +353,37 @@ final class TerminalDeckView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        removeGestureEventMonitor()
         if window != nil {
+            installGestureEventMonitor()
             if availableSessionsRefreshTimer == nil { startAvailableSessionsPolling() }
             refreshRegisteredTargets(force: true)
         } else {
             availableSessionsRefreshTimer?.invalidate()
             availableSessionsRefreshTimer = nil
         }
+    }
+
+    private func installGestureEventMonitor() {
+        gestureEventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.scrollWheel, .swipe]
+        ) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            switch event.type {
+            case .scrollWheel:
+                return self.processTwoFingerScroll(event) ? nil : event
+            case .swipe:
+                return self.processThreeFingerSwipe(event) ? nil : event
+            default:
+                return event
+            }
+        }
+    }
+
+    private func removeGestureEventMonitor() {
+        guard let gestureEventMonitor else { return }
+        NSEvent.removeMonitor(gestureEventMonitor)
+        self.gestureEventMonitor = nil
     }
 
     private var activeSessionTiles: [TerminalTileView] {
@@ -1464,6 +1501,40 @@ final class TerminalDeckView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        if !processTwoFingerScroll(event) {
+            super.scrollWheel(with: event)
+        }
+    }
+
+    override func swipe(with event: NSEvent) {
+        if !processThreeFingerSwipe(event) {
+            super.swipe(with: event)
+        }
+    }
+
+    override func touchesBegan(with event: NSEvent) {
+        updateDirectTrackpadSwipe(with: event)
+        super.touchesBegan(with: event)
+    }
+
+    override func touchesMoved(with event: NSEvent) {
+        updateDirectTrackpadSwipe(with: event)
+        super.touchesMoved(with: event)
+    }
+
+    override func touchesEnded(with event: NSEvent) {
+        if indirectTouches(in: event).count < 2 {
+            directTrackpadSwipe = nil
+        }
+        super.touchesEnded(with: event)
+    }
+
+    override func touchesCancelled(with event: NSEvent) {
+        directTrackpadSwipe = nil
+        super.touchesCancelled(with: event)
+    }
+
+    private func processTwoFingerScroll(_ event: NSEvent) -> Bool {
         guard focusedIndex == nil,
               event.hasPreciseScrollingDeltas,
               event.phase != [],
@@ -1471,11 +1542,12 @@ final class TerminalDeckView: NSView {
               commandPalette == nil,
               mapEditOverlay == nil,
               !isPeeking
-        else {
-            super.scrollWheel(with: event)
-            return
+        else { return false }
+        if ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil {
+            twoFingerCameraSwipe = nil
+            return true
         }
-        if event.momentumPhase != [] { return }
+        if event.momentumPhase != [] { return true }
 
         if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
             twoFingerCameraSwipe = TwoFingerCameraSwipe()
@@ -1490,28 +1562,77 @@ final class TerminalDeckView: NSView {
         }
         if event.phase.contains(.cancelled) {
             twoFingerCameraSwipe = nil
-            return
+            return true
         }
-        guard event.phase.contains(.ended), let swipe = twoFingerCameraSwipe else { return }
+        guard event.phase.contains(.ended), let swipe = twoFingerCameraSwipe else {
+            return true
+        }
         twoFingerCameraSwipe = nil
         guard let direction = cameraSwipeDirection(
             horizontal: swipe.horizontal,
             vertical: swipe.vertical,
             threshold: CameraSwipe.twoFingerThreshold
-        ) else { return }
+        ) else { return true }
         _ = performCameraSwipe(direction, fingerCount: 2)
+        return true
     }
 
-    override func swipe(with event: NSEvent) {
+    private func processThreeFingerSwipe(_ event: NSEvent) -> Bool {
+        if ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil {
+            return true
+        }
         guard let direction = cameraSwipeDirection(
             horizontal: event.deltaX,
             vertical: event.deltaY,
             threshold: 0.1
-        ), performCameraSwipe(direction, fingerCount: 3)
-        else {
-            super.swipe(with: event)
+        ) else { return false }
+        return performCameraSwipe(direction, fingerCount: 3)
+    }
+
+    private func updateDirectTrackpadSwipe(with event: NSEvent) {
+        let touches = indirectTouches(in: event)
+        guard touches.count == 2 || touches.count == 3 else {
+            if touches.count < 2 { directTrackpadSwipe = nil }
             return
         }
+        let center = touchCenter(touches)
+        if directTrackpadSwipe?.fingerCount != touches.count {
+            directTrackpadSwipe = DirectTrackpadSwipe(
+                fingerCount: touches.count,
+                start: center
+            )
+            return
+        }
+        guard var swipe = directTrackpadSwipe, !swipe.didTrigger else { return }
+        let horizontal = center.x - swipe.start.x
+        let vertical = -(center.y - swipe.start.y)
+        guard let direction = cameraSwipeDirection(
+            horizontal: horizontal,
+            vertical: vertical,
+            threshold: CameraSwipe.directTouchThreshold
+        ), performCameraSwipe(direction, fingerCount: swipe.fingerCount)
+        else { return }
+        swipe.didTrigger = true
+        directTrackpadSwipe = swipe
+        suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
+            + CameraSwipe.duplicateSuppressionDuration
+    }
+
+    private func indirectTouches(in event: NSEvent) -> [NSTouch] {
+        event.touches(matching: .touching, in: self).filter {
+            $0.type == .indirect
+        }
+    }
+
+    private func touchCenter(_ touches: [NSTouch]) -> NSPoint {
+        let total = touches.reduce(NSPoint.zero) { partial, touch in
+            NSPoint(
+                x: partial.x + touch.normalizedPosition.x,
+                y: partial.y + touch.normalizedPosition.y
+            )
+        }
+        let count = CGFloat(touches.count)
+        return NSPoint(x: total.x / count, y: total.y / count)
     }
 
     private func cameraSwipeDirection(
@@ -1535,12 +1656,12 @@ final class TerminalDeckView: NSView {
               presentedOverlay == nil,
               commandPalette == nil,
               mapEditOverlay == nil,
-              spatialDrag == nil,
-              prepareForInteractionIntent()
+              spatialDrag == nil
         else { return false }
+        if fingerCount == 2, focusedIndex != nil { return false }
+        guard prepareForInteractionIntent() else { return false }
 
         if fingerCount == 2 {
-            guard focusedIndex == nil else { return false }
             return moveMapSelectionForSwipe(direction)
         }
 
@@ -6520,6 +6641,7 @@ final class TerminalDeckView: NSView {
 
     func prepareForTermination() {
         isShuttingDown = true
+        removeGestureEventMonitor()
         availableSessionsRefreshTimer?.invalidate()
         availableSessionsRefreshTimer = nil
         for tile in persistedSessionTiles where tile.session.state == .running || tile.session.state == .starting {
