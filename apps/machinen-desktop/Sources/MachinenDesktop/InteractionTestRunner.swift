@@ -3614,8 +3614,11 @@ enum InteractionTestRunner {
         let confirmation = try harness.inlineConfirmation(in: deck)
         var snapshot = try harness.snapshot(of: deck)
         try expect(
-            snapshot.tiles.count == 1 && confirmation.superview is TerminalTileView,
-            "⌘W changed the terminal before its in-tile confirmation"
+            snapshot.tiles.count == 1
+                && confirmation.superview is TerminalTileView
+                && (try harness.uiLevel(of: deck)) == "terminal"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘W left the terminal or entered edit mode before confirmation"
         )
         try harness.pressEscape(on: confirmation)
         RunLoop.current.run(until: Date().addingTimeInterval(0.30))
@@ -3648,8 +3651,10 @@ enum InteractionTestRunner {
         let workspaceConfirmation = try harness.inlineConfirmation(in: overviewDeck)
         try expect(
             workspaceConfirmation.superview is WorkspaceClusterView
-                && (try harness.snapshot(of: overviewDeck)).workspaces.count == 2,
-            "⌘W changed the workspace before its in-tile confirmation"
+                && (try harness.snapshot(of: overviewDeck)).workspaces.count == 2
+                && (try harness.uiLevel(of: overviewDeck)) == "overview"
+                && !overviewDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘W changed the workspace or entered edit mode before confirmation"
         )
         try harness.pressEscape(on: workspaceConfirmation)
     }
@@ -3673,6 +3678,17 @@ enum InteractionTestRunner {
         let originalIDs = Set(try harness.snapshot(of: deck).tiles.map(\.id))
         deck.zoomInOneLevel()
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        deck.handleCommandW()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.55))
+        let workspaceConfirmation = try harness.inlineConfirmation(in: deck)
+        try expect(
+            workspaceConfirmation.superview is TerminalTileView
+                && (try harness.uiLevel(of: deck)) == "workspace"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "workspace ⌘W did not stay local to the selected terminal tile"
+        )
+        try harness.pressEscape(on: workspaceConfirmation)
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.30))
         deck.zoomInOneLevel()
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
         try expect(try harness.uiLevel(of: deck) == "terminal",
@@ -3682,8 +3698,10 @@ enum InteractionTestRunner {
         let confirmation = try harness.inlineConfirmation(in: deck)
         try expect(
             try harness.snapshot(of: deck).tiles.count == 4
-                && confirmation.superview is TerminalTileView,
-            "⌘W changed the terminal before its in-tile confirmation"
+                && confirmation.superview is TerminalTileView
+                && (try harness.uiLevel(of: deck)) == "terminal"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘W changed the terminal or entered edit mode before confirmation"
         )
         try harness.pressReturn(on: confirmation)
         RunLoop.current.run(until: Date().addingTimeInterval(0.25))

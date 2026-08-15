@@ -179,6 +179,7 @@ final class TerminalDeckView: NSView {
     private var addTerminalTileView: TerminalTileView?
     private var addTerminalCardView: AddTerminalCardView?
     private var inlineConfirmationView: ActionConfirmationView?
+    private var localizedActionCameraBounds: NSRect?
     private var ghostWorkspaceTargets: [String: (String, NativeWorkspaceRecord)] = [:]
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
@@ -3026,6 +3027,7 @@ final class TerminalDeckView: NSView {
         let returnState = mapEditReturnState
         mapEditReturnState = nil
         interactionPolicySession = nil
+        localizedActionCameraBounds = nil
         removeMapEditPresentation()
         if restorePreviousView, let returnState {
             restoreMapEditReturnState(returnState)
@@ -3371,11 +3373,20 @@ final class TerminalDeckView: NSView {
         confirmation.autoresizingMask = [.width, .height]
         confirmation.layer?.zPosition = 2_000
         confirmation.onCancel = { [weak self] in
-            self?.dismissMapEditOverlay()
+            guard let self else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay()
+            } else {
+                self.cancelLocalizedAction()
+            }
         }
         confirmation.onConfirm = { [weak self] in
             guard let self else { return }
-            self.dismissMapEditOverlay(restorePreviousView: false)
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            } else {
+                self.finishLocalizedAction()
+            }
             action()
         }
         inlineConfirmationView = confirmation
@@ -3389,6 +3400,28 @@ final class TerminalDeckView: NSView {
             guard let self, let confirmation else { return }
             self.window?.makeFirstResponder(confirmation)
         }
+    }
+
+    private func cancelLocalizedAction() {
+        let cameraBounds = localizedActionCameraBounds
+        finishLocalizedAction(clearPolicy: false)
+        guard let cameraBounds else {
+            interactionPolicySession = nil
+            restoreInputFocus()
+            return
+        }
+        moveCameraForPolicy(.directIfNeeded, to: cameraBounds) { [weak self] in
+            self?.interactionPolicySession = nil
+            self?.restoreInputFocus()
+        }
+    }
+
+    private func finishLocalizedAction(clearPolicy: Bool = true) {
+        if presentedOverlay === inlineConfirmationView { presentedOverlay = nil }
+        inlineConfirmationView?.removeFromSuperview()
+        inlineConfirmationView = nil
+        localizedActionCameraBounds = nil
+        if clearPolicy { interactionPolicySession = nil }
     }
 
     private func leaveInlineRemoval() {
@@ -6671,7 +6704,8 @@ final class TerminalDeckView: NSView {
             availableSessionsView.killSelected()
             return
         }
-        if presentedOverlay != nil, inlineConfirmationView == nil { return }
+        if inlineConfirmationView != nil { return }
+        if presentedOverlay != nil { return }
         if commandPalette != nil {
             dismissCommandPalette()
             return
@@ -6693,19 +6727,9 @@ final class TerminalDeckView: NSView {
             beginInlineRemoval(cameraPolicy: rule.camera)
             return
         }
-        presentMapEditOverlay(
-            cameraPolicy: .none,
-            onPresented: { [weak self] in
-                self?.selectInlineRemovalTarget(
-                    rule.target,
-                    workspaceID: workspaceID,
-                    tileID: tileID
-                )
-            },
-            onReady: { [weak self] in
-                self?.beginInlineRemoval(cameraPolicy: rule.camera)
-            }
-        )
+        interactionPolicySession = interactionIntentEngine.snapshot()
+        localizedActionCameraBounds = sceneView.bounds
+        beginInlineRemoval(cameraPolicy: rule.camera)
     }
 
     private func nextAvailableWorkspaceName(base requestedBase: String = "workspace") -> String {

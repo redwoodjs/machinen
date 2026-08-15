@@ -404,8 +404,8 @@ level that opened edit mode.
 
 `⌘W` never closes Machinen's macOS window:
 
-- Inside a workspace, `⌘W` opens edit mode, selects the current terminal tile, and enters a red verification panel inside that tile. No state changes before Return confirms the action. Confirmation removes the tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace. If a terminal has focus, the camera returns to the workspace map. Machinen never focuses the next terminal automatically.
-- In the workspace overview, `⌘W` enters the selected workspace tile and shows the same in-tile verification model before workspace removal.
+- Inside a workspace, `⌘W` stays at the current level and targets only the highlighted terminal tile. It does not enter general edit mode or add temporary tiles. A red verification panel appears inside that tile. No state changes before Return confirms the action. Confirmation removes the tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace. If a terminal has focus, the camera returns to the workspace map. Machinen never focuses the next terminal automatically.
+- In the workspace overview, `⌘W` targets only the highlighted workspace tile and shows the same local verification model before workspace removal.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
 - The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the app-wide session browser with attachment, client, and control state. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills a selected session.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
