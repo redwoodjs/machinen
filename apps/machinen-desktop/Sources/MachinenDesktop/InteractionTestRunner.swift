@@ -13,7 +13,7 @@ enum InteractionTestRunner {
                 return 0
             }
             try commandNEntersCreationTile()
-            try interactionPolicyReloadsWithoutAppRebuild()
+            try interactionPolicyReloadsOnlyOnRequest()
             try mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
             try settingsFileIsAvailableInApplicationMenu()
@@ -161,17 +161,12 @@ enum InteractionTestRunner {
         try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
     }
 
-    private static func interactionPolicyReloadsWithoutAppRebuild() throws {
+    private static func interactionPolicyReloadsOnlyOnRequest() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("machinen-policy-tests-\(UUID().uuidString)")
         let policyURL = directory.appendingPathComponent("interactions.json")
         defer { try? FileManager.default.removeItem(at: directory) }
-        let engine = InteractionIntentEngine(
-            url: policyURL,
-            watch: true,
-            reloadInterval: 0.02
-        )
-        defer { engine.stopWatching() }
+        let engine = InteractionIntentEngine(url: policyURL)
 
         try expect(
             FileManager.default.fileExists(atPath: policyURL.path),
@@ -200,23 +195,20 @@ enum InteractionTestRunner {
             rules: changedRules
         )
         try InteractionIntentEngine.encodedPolicy(changed).write(to: policyURL, options: .atomic)
-        let changedDeadline = Date().addingTimeInterval(1)
-        while engine.snapshot() != changed, Date() < changedDeadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        }
         try expect(
-            engine.snapshot() == changed,
+            engine.snapshot() == original,
+            "the intent engine reloaded the policy without a manual request"
+        )
+        try expect(
+            engine.reloadNow() && engine.snapshot() == changed,
             "the intent engine did not reload a valid policy change"
         )
 
         let pinnedSession = engine.snapshot()
         try InteractionIntentEngine.encodedPolicy(original).write(to: policyURL, options: .atomic)
-        let restoredDeadline = Date().addingTimeInterval(1)
-        while engine.snapshot() != original, Date() < restoredDeadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        }
         try expect(
-            engine.snapshot() == original
+            engine.reloadNow()
+                && engine.snapshot() == original
                 && pinnedSession.rule(for: .close, at: .terminal)?.camera == .directIfNeeded,
             "a policy reload changed an active policy snapshot"
         )
@@ -242,16 +234,18 @@ enum InteractionTestRunner {
             to: policyURL,
             options: .atomic
         )
-        RunLoop.current.run(until: Date().addingTimeInterval(0.10))
         try expect(
-            engine.generation == acceptedGeneration && engine.snapshot() == original,
+            !engine.reloadNow()
+                && engine.generation == acceptedGeneration
+                && engine.snapshot() == original,
             "an unsafe action shape replaced the last valid policy"
         )
 
         try Data("{ invalid policy".utf8).write(to: policyURL, options: .atomic)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.10))
         try expect(
-            engine.generation == acceptedGeneration && engine.snapshot() == original,
+            !engine.reloadNow()
+                && engine.generation == acceptedGeneration
+                && engine.snapshot() == original,
             "an invalid policy replaced the last valid policy"
         )
     }
@@ -690,6 +684,14 @@ enum InteractionTestRunner {
             policyItem?.action == NSSelectorFromString("openInteractionPolicyFile")
                 && policyItem?.target === delegate,
             "the application menu did not expose the interaction policy"
+        )
+        let reloadPolicyItem = appMenu?.items.first(where: {
+            $0.title == "Reload Interaction Policy"
+        })
+        try expect(
+            reloadPolicyItem?.action == NSSelectorFromString("reloadInteractionPolicy")
+                && reloadPolicyItem?.target === delegate,
+            "the application menu did not expose manual policy reload"
         )
         let newItems = appMenu?.items.filter {
             $0.action == NSSelectorFromString("createNewWorkspaceOrTerminal")

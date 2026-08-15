@@ -57,8 +57,8 @@ shortcut and writes an explanation to the macOS log.
 ## Configure interaction intents
 
 Desktop creates `~/.config/machinen/interactions.json` on first launch. Choose
-**Machinen → Open Interaction Policy** to open it. Desktop reloads valid changes
-automatically. No rebuild or restart is necessary.
+**Machinen → Open Interaction Policy** to open it. Choose **Machinen → Reload
+Interaction Policy** after each change. No rebuild or restart is necessary.
 
 Each rule maps an overview, workspace, or terminal intent to a tile target,
 inline panel, camera policy, and approved effect. Invalid changes never replace

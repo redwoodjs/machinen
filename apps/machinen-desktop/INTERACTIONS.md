@@ -58,8 +58,9 @@ first launch and adds new defaults to older files. The actions are `enter`,
 `previousWorkspace`, and `nextWorkspace`. The file is read when Desktop starts.
 
 Machinen writes its intent policy to `~/.config/machinen/interactions.json`.
-The application menu can open this file. Desktop reloads valid changes without a
-rebuild or restart. Each rule maps a level and `edit`, `new`, or `close` intent
+The application menu can open this file. **Reload Interaction Policy** loads a
+valid change without a rebuild or restart. Desktop never polls the file. Each
+rule maps a level and `edit`, `new`, or `close` intent
 to a spatial target, inline panel, camera policy, and approved native effect.
 The engine rejects duplicate rules, missing rules, unknown values, and panel or
 effect mismatches. It keeps the last valid policy after an error. An active edit

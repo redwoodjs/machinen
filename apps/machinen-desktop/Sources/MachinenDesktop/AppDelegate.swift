@@ -87,7 +87,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         desktopShortcutMonitor?.stop()
-        interactionIntentEngine?.stopWatching()
         apiServer?.stop()
         desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
@@ -147,6 +146,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         interactionPolicyItem.target = self
         appMenu.addItem(interactionPolicyItem)
+        let reloadInteractionPolicyItem = NSMenuItem(
+            title: "Reload Interaction Policy",
+            action: #selector(reloadInteractionPolicy),
+            keyEquivalent: ""
+        )
+        reloadInteractionPolicyItem.target = self
+        appMenu.addItem(reloadInteractionPolicyItem)
         appMenu.addItem(.separator())
 
         let newWorkspaceItem = NSMenuItem(
@@ -353,6 +359,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard NSWorkspace.shared.open(url) else {
             NSLog("Machinen could not open interaction policy at %@", url.path)
             return
+        }
+    }
+
+    @objc private func reloadInteractionPolicy() {
+        guard let interactionIntentEngine,
+              !interactionIntentEngine.reloadNow()
+        else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Could Not Reload Interaction Policy"
+        alert.informativeText = interactionIntentEngine.lastReloadError
+            ?? "The policy is invalid. Machinen kept the last valid policy."
+        if let window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
         }
     }
 

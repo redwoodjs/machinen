@@ -236,7 +236,7 @@ struct InteractionPolicyError: LocalizedError {
 }
 
 @MainActor
-final class InteractionIntentEngine: NSObject {
+final class InteractionIntentEngine {
     static var defaultURL: URL {
         let environment = ProcessInfo.processInfo.environment
         let configRoot: URL
@@ -254,27 +254,23 @@ final class InteractionIntentEngine: NSObject {
 
     private(set) var policy: InteractionIntentPolicy
     private(set) var generation = 1
+    private(set) var lastReloadError: String?
     let policyURL: URL?
 
     private var lastAcceptedData: Data?
     private var lastAttemptedData: Data?
-    private var reloadTimer: Timer?
 
     init(policy: InteractionIntentPolicy = .defaults) {
         self.policy = policy
         policyURL = nil
-        super.init()
     }
 
     init(
         url: URL = defaultURL,
-        createIfMissing: Bool = true,
-        watch: Bool = true,
-        reloadInterval: TimeInterval = 0.5
+        createIfMissing: Bool = true
     ) {
         policy = .defaults
         policyURL = url
-        super.init()
         if createIfMissing, !FileManager.default.fileExists(atPath: url.path) {
             do {
                 try Self.writeDefaultPolicy(to: url)
@@ -287,22 +283,6 @@ final class InteractionIntentEngine: NSObject {
             }
         }
         _ = reloadNow()
-        if watch {
-            let timer = Timer(
-                timeInterval: reloadInterval,
-                target: self,
-                selector: #selector(checkForPolicyChange),
-                userInfo: nil,
-                repeats: true
-            )
-            reloadTimer = timer
-            RunLoop.main.add(timer, forMode: .common)
-        }
-    }
-
-    func stopWatching() {
-        reloadTimer?.invalidate()
-        reloadTimer = nil
     }
 
     func snapshot() -> InteractionIntentPolicy {
@@ -323,6 +303,7 @@ final class InteractionIntentEngine: NSObject {
             policy = candidate
             lastAcceptedData = data
             lastAttemptedData = data
+            lastReloadError = nil
             generation += 1
             NSLog(
                 "Machinen loaded interaction policy generation %d from %@",
@@ -331,6 +312,7 @@ final class InteractionIntentEngine: NSObject {
             )
             return true
         } catch {
+            lastReloadError = String(describing: error)
             let attemptedData = try? Data(contentsOf: policyURL)
             if attemptedData != lastAttemptedData {
                 NSLog(
@@ -343,14 +325,6 @@ final class InteractionIntentEngine: NSObject {
             lastAttemptedData = attemptedData
             return false
         }
-    }
-
-    @objc private func checkForPolicyChange() {
-        guard let policyURL,
-            let data = try? Data(contentsOf: policyURL),
-            data != lastAttemptedData
-        else { return }
-        _ = reloadNow()
     }
 
     static func encodedPolicy(_ policy: InteractionIntentPolicy) throws -> Data {
