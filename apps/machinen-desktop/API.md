@@ -64,13 +64,22 @@ Mutations may include an `idempotencyKey`. Reusing a key during the same app
 run returns the first successful result. Reusing it for different parameters
 returns `conflict`.
 
+## Scene authority
+
+One configured Machinen server owns the complete Desktop scene. Every Desktop client loads and changes that same scene.
+
+The server address uses this selection order: `--server`, `MACHINEN_SERVER`, the saved `server` setting, then the local server. A remote address uses `ssh://<host>`. Desktop stops when the configured server is unavailable. It never falls back to a private scene.
+
+`terminals.json` is a one-time migration source. Desktop does not use it as an active shared-state store after server migration.
+
 ## Object hierarchy
 
 ```text
-Workspace
-└── Tile
-    └── Terminal
-        └── persistent PTY process
+Target machine (local is implicit; SSH is registered)
+└── Workspace
+    └── Tile
+        └── Terminal
+            └── persistent PTY process
 ```
 
 A workspace owns its project directory and workspace-scoped status items. A tile
@@ -176,7 +185,24 @@ Returns `{ "pong": true }`.
 
 ### `system.snapshot`
 
-Atomically returns `workspaces`, `tiles`, `terminals`, and `ui`.
+Atomically returns `targets`, `workspaces`, `tiles`, `terminals`, and `ui`.
+
+## Targets
+
+- `target.list {}`
+- `target.register { host }`
+- `target.remove { targetId }`
+- `target.sessions {}`
+
+Local is the implicit `local` target and cannot be removed. An SSH target has a
+persisted opaque ID and an OpenSSH `host` connection profile (an alias or
+`user@host`). Registering an existing profile is idempotent. `target.list`
+reports `online`, `unreachable`, or `inactive`; unreachable preserves the last
+discovery result and is not inactive. Automatic polling is single-flight per
+target and backs off after repeated failures. `target.sessions` groups native workspace
+records and running sessions by target. Discovery never changes Desktop's scene
+or attaches a renderer. `target.remove` only stops future polling; it never
+copies SQLite, PTY state, or terminal output.
 
 ## Workspaces
 
@@ -193,10 +219,11 @@ Every workspace has a stable ID and a unique, case-insensitive name. Machinen
 trims surrounding whitespace when creating or renaming a workspace. A workspace
 also has one mutable directory root, which may be shared by other explicitly
 identified workspaces. The native session store on the machine owning that root
-persists the workspace ID, name, root, and explicit session membership. Desktop's
-private manifest is only a presentation cache: a fresh Desktop reconstructs
-local native workspaces automatically, and selecting a registered SSH directory
-restores the corresponding remote workspace. A local location is
+persists the workspace ID, name, root, and explicit session membership. The
+configured Machinen server owns the spatial scene for every Desktop client.
+Registered targets are polled for native workspaces and sessions, but discovery
+never changes the server scene. Opening a discovered workspace or attaching a
+session is always explicit. A local location is
 `{ "kind": "local", "path": "/project" }`. A remote location is
 `{ "kind": "ssh", "host": "mini", "path": "/project" }`; `host` uses the
 user's OpenSSH configuration and may include a username. The legacy
@@ -302,35 +329,19 @@ emits `tile.reconnected` with the same IDs, and a second `⌘W` or the session
 panel's Kill action emits `tile.killed` while removing the native session. API
 `tile.delete` retains its explicit immediate semantics.
 
-## Status bar
+## Status data
 
 - `status.list {}`
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. Its right edge holds the spatial minimap,
-preceded by the running app and bundled native helper identified as
-`Desktop <version> · Session <version>`.
-At workspace level its activity monitor summarizes all of that workspace's
-tiles, and the bar also shows aggregate tile
-CPU/network and branch-wide Git changes. The Git item graphs per-file additions
-and deletions with compact line totals at rest; its hover detail contains the
-branch, commits since the default-branch merge base, changed files, and exact
-added/deleted lines. The spatial minimap encodes each terminal's activity in its
-pane outline instead of publishing a redundant built-in `machinen.activity`
-widget. Hovering the compact minimap reveals its large read-only counterpart.
-A focused terminal has a built-in `machinen.sessionControl` widget: `CONTROL`
-or `VIEWING`, followed by `+N` when other viewers are attached. Its hover detail
-lists viewer names and roles; clicking opens the session panel with that terminal
-selected. The bar also shows per-PID CPU/network (including local child processes) and workspace branch
-changes. Open ports are workspace-scoped and
-include listeners whose process working directory is the workspace folder or
-one of its descendants. They list each listener on its own hover line and open
-through the default macOS URL handler when selected. Workspace-scoped items belong to
-the selected workspace. Its title is the selected workspace at the workspace level
-and `workspace > terminal name` at the terminal level; hovering
-a workspace title reveals its bound path. Programs can publish declarative widgets
-beside the title without injecting arbitrary AppKit views:
+The persistent top bar shows `Workspaces`, `Workspaces > workspace`, or
+`Workspaces > workspace > terminal` for its current camera level. Its right edge
+contains only the build version and the spatial minimap. The minimap encodes each
+terminal's activity in its pane outline. Hovering it reveals its large read-only
+counterpart.
+
+Programs can publish declarative status records for API clients:
 
 ```json
 {
@@ -360,9 +371,8 @@ replace less specific widgets with the same `id` in global → machine → works
 up to 60 finite numbers. A state widget can render up to 32 graphical pips from
 `working`, `waiting`, `idle`, `unknown`, `neutral`, `good`, `busy`, `attention`,
 and `error`. A widget can include up to 32 `links`, each with a title and HTTP(S)
-URL; clicking it presents those links through the default macOS handler. Labels
-and values remain available to API clients and hover tooltips,
-but graphical widgets do not render them at rest. A TTL removes stale live data
+URL. Labels, values, samples, and links remain available to API clients. The top
+bar does not render published status records. A TTL removes stale live data
 automatically. `status.list` returns both published widgets and the currently
 effective widgets after spatial-scope inheritance.
 
@@ -549,6 +559,8 @@ command.changed
 command.invoked
 selectionOpener.changed
 selectionOpener.invoked
+target.registered
+target.removed
 ui.changed
 ```
 

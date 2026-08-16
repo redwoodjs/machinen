@@ -6,6 +6,11 @@ enum TileKind {
 }
 
 final class TerminalTileView: NSView {
+    enum RenderingMode: Equatable {
+        case terminal
+        case newTerminal
+    }
+
     private enum Metrics {
         static let cornerRadius: CGFloat = 7
         static let captionHeight: CGFloat = 40
@@ -15,6 +20,7 @@ final class TerminalTileView: NSView {
 
     let session: TerminalSession
     let kind: TileKind
+    let renderingMode: RenderingMode
     private let clusterSessions: [TerminalTileView]
     private var displayState: TerminalSession.State
     private var displayTerminalText: String
@@ -38,6 +44,10 @@ final class TerminalTileView: NSView {
             updateBorderAppearance()
             needsDisplay = true
         }
+    }
+
+    var selectionBorderAlpha: CGFloat = 1 {
+        didSet { updateBorderAppearance() }
     }
 
     var isActivated: Bool = false {
@@ -76,10 +86,12 @@ final class TerminalTileView: NSView {
     init(
         session: TerminalSession,
         kind: TileKind = .session,
-        clusterSessions: [TerminalTileView] = []
+        clusterSessions: [TerminalTileView] = [],
+        renderingMode: RenderingMode = .terminal
     ) {
         self.session = session
         self.kind = kind
+        self.renderingMode = renderingMode
         self.clusterSessions = clusterSessions
         displayState = session.state
         displayTerminalText = session.terminalText
@@ -212,6 +224,10 @@ final class TerminalTileView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
+        if renderingMode == .newTerminal {
+            drawNewTerminal()
+            return
+        }
         drawBackground()
         drawCaption()
         drawTerminal()
@@ -280,6 +296,28 @@ final class TerminalTileView: NSView {
         if !consumedByDrag {
             onSelect?(event)
         }
+    }
+
+    private func drawNewTerminal() {
+        let path = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 2, dy: 2),
+            xRadius: Metrics.cornerRadius,
+            yRadius: Metrics.cornerRadius
+        )
+        NSColor.systemBlue.withAlphaComponent(isSelected ? 0.18 : 0.09).setFill()
+        path.fill()
+        path.setLineDash([9, 7], count: 2, phase: 0)
+        NSColor.systemBlue.setStroke()
+        path.lineWidth = isSelected ? 4 : 2
+        path.stroke()
+        drawText(
+            "+ New terminal",
+            in: bounds,
+            font: .monospacedSystemFont(ofSize: 15, weight: .medium),
+            color: .systemBlue,
+            alignment: .center,
+            verticalCenter: true
+        )
     }
 
     private func drawBackground() {
@@ -448,6 +486,10 @@ final class TerminalTileView: NSView {
     }
 
     private func updateBorderAppearance() {
+        if renderingMode == .newTerminal {
+            layer?.borderWidth = 0
+            return
+        }
         guard !isFocused else {
             layer?.borderWidth = 0
             return
@@ -457,7 +499,8 @@ final class TerminalTileView: NSView {
             layer?.borderColor = NSColor.white.cgColor
         } else if isSelected {
             layer?.borderWidth = 3
-            layer?.borderColor = NSColor.controlAccentColor.cgColor
+            layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(selectionBorderAlpha).cgColor
         } else {
             layer?.borderWidth = 1
             layer?.borderColor = NSColor(calibratedWhite: 0.31, alpha: 1).cgColor
@@ -465,6 +508,10 @@ final class TerminalTileView: NSView {
     }
 
     private func updateAccessibilityLabel() {
+        if renderingMode == .newTerminal {
+            setAccessibilityLabel("New terminal in \(session.workspace)")
+            return
+        }
         setAccessibilityLabel(
             "\(session.workspace), \(session.commandTitle), \(displayState.rawValue), \(session.activityState.rawValue)"
         )

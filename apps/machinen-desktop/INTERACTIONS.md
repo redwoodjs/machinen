@@ -16,7 +16,9 @@ A **workspace** has a stable ID and a mutable directory root—either a local
 folder or an SSH host plus remote folder—and workspace-scoped status items. The
 native session store on the execution machine persists that workspace record and
 explicit session membership, while each Desktop keeps only its own presentation
-cache. A **tile** is the
+cache. Desktop has one implicit local target plus explicit persisted SSH target
+profiles. It polls only those targets; discovery updates the session browser and
+never creates a workspace, tile, viewer, or camera transition. A **tile** is the
 spatial object reordered within that workspace; it links the terminal to its
 current foreground process PID. A **terminal** owns
 the launch configuration, emulator, and persistent PTY. A workspace with one
@@ -26,33 +28,53 @@ discovery use the workspace directory as their project boundary.
 
 ## Navigation
 
-| Input           | Behavior                                                                           |
-| --------------- | ---------------------------------------------------------------------------------- |
-| `⌘+` / `⌘−`     | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
-| `⌘0`            | Reset camera magnification to actual size without changing hierarchy level.        |
-| `⌘,`            | Open the Desktop settings file in the user's default editor.                       |
-| `⇧⌘↓` or Return | Enter the selected workspace or pane.                                              |
-| `⇧⌘↑`           | Leave the current pane or workspace.                                               |
-| `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
-| `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the active pane in the previous/next workspace.          |
-| `⌘N` / `⇧⌘N`    | Open the New chooser; never create a terminal or workspace immediately.            |
-| `⌘K` / `⇧⌘K`    | Open the single nested command menu for the current and containing spaces.         |
-| `⌘O`            | Show the focused terminal's full context menu.                                     |
-| `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
-| Keyboard input  | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
-| Arrow keys      | Move the selection only at the current overview level.                             |
-| `⇧` + arrows    | Reorder the selected pane or workspace in the chosen direction.                    |
-| Click           | A terminal preview focuses its terminal.                                           |
-| Right-click     | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
-| Drag preview    | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
-| Drag terminal   | Forward the drag for terminal selection/input.                                     |
-| Hold Space      | Momentarily peek into the selection.                                               |
+| Input            | Behavior                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `⌘+` / `⌘−`      | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
+| `⌘0`             | Reset camera magnification to actual size without changing hierarchy level.        |
+| `⌘,`             | Open the Desktop settings file in the user's default editor.                       |
+| `⇧⌘↓` or Return  | Enter the selected workspace or pane.                                              |
+| `⇧⌘↑`            | Leave the current pane or workspace.                                               |
+| `⇧⌘←` / `⇧⌘→`    | From Terminal mode, focus the previous/next pane in the current workspace.         |
+| `⇧⌘[` / `⇧⌘]`    | From Terminal mode, focus the active pane in the previous/next workspace.          |
+| `⌘N` / `⇧⌘N`     | Enter map edit mode, select the current creation tile, and enter that tile.        |
+| `⌘K` / `⇧⌘K`     | Open commands for the current and containing spaces.                               |
+| `⌘E` or `⇧⌘E`    | Open or close the action overlay for the visible map level.                        |
+| `⌘O`             | Show the focused terminal's full context menu.                                     |
+| `⌘W`             | Enter the selected tile and verify its removal before any state changes.           |
+| Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
+| Arrow keys       | Move the selection only at the current overview level.                             |
+| `⇧` + arrows     | Reorder the selected pane or workspace in the chosen direction.                    |
+| Click            | A terminal preview focuses its terminal.                                           |
+| Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
+| Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
+| Drag terminal    | Forward the drag for terminal selection/input.                                     |
+| Hold Space       | Momentarily peek into the selection.                                               |
+| Two-finger swipe | Select a map tile and pan the camera in the swipe direction.                       |
+| Three-finger ↑/↓ | Leave one camera level or enter the highlighted object.                            |
+| Three-finger ←/→ | Pan between sibling terminals, workspaces, or overview tiles.                      |
 
 Machinen writes the spatial shortcuts to `~/.config/machinen/config.json` on
 first launch and adds new defaults to older files. The actions are `enter`,
 `leave`, `selectLeft`, `selectRight`, `selectDown`, `selectUp`, `moveLeft`,
 `moveRight`, `moveDown`, `moveUp`, `previousPane`, `nextPane`,
 `previousWorkspace`, and `nextWorkspace`. The file is read when Desktop starts.
+
+Machinen writes its intent policy to `~/.config/machinen/interactions.json`.
+The application menu can open this file. **Reload Interaction Policy** loads a
+valid change without a rebuild or restart. Desktop never polls the file. Each
+rule maps a level and `edit`, `new`, or `close` intent
+to a spatial target, inline panel, camera policy, and approved native effect.
+The engine rejects duplicate rules, missing rules, unknown values, and panel or
+effect mismatches. It keeps the last valid policy after an error. An active edit
+session retains the policy version that opened it. The next edit session uses
+the new version.
+
+The engine supports `none`, `directIfNeeded`, and `parentLevel` camera policies.
+`cameraDurationMilliseconds` changes the shared transition time. One rule supplies
+one final camera target. `directIfNeeded` skips motion when the
+camera already matches that target. Native Swift code retains Escape restoration,
+destructive verification, effect approval, and workspace ownership checks.
 
 ## Input modes
 
@@ -64,7 +86,7 @@ first launch and adds new defaults to older files. The actions are `enter`,
 - **Terminal mode:** one terminal is focused, and its viewport owns every
   pointer and keyboard event. Spatial dragging, overview navigation, and
   application command equivalents do not intercept terminal input, except
-  `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N` / `⇧⌘N`, `⌘K` / `⇧⌘K`, and `⌘O`.
+  `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N` / `⇧⌘N`, `⌘K` / `⇧⌘K`, `⌘O`, and three-finger swipes.
   `previousPane` and `nextPane` wrap through the terminals in the current
   workspace by panning the camera directly at a fixed zoom without leaving
   Terminal mode. `previousWorkspace` and `nextWorkspace` wrap through
@@ -77,8 +99,7 @@ first launch and adds new defaults to older files. The actions are `enter`,
   preserves the scene's exact workspace and pane geometry under one uniform
   scale and animates the camera viewport from source to destination. It remains
   fully visible for 1.25 seconds at the destination, then fades over 340 ms. A
-  persistent 56×26-point status item sits at the far right after every other
-  status item.
+  persistent 56×26-point status item sits at the far right after the version.
   It keeps exact workspace and pane placement but simplifies each pane to a
   square pixel-snapped outline, with one-pixel gutters that make pane and
   workspace counts legible. Pane outline intensity also carries activity:
@@ -92,7 +113,7 @@ first launch and adds new defaults to older files. The actions are `enter`,
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
 
-`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. Neither changes terminal scrollback.
+`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. A two-finger swipe selects and pans between spatial tiles only in Navigate mode. Terminal mode keeps two-finger scroll for terminal history. Holding `⇧⌘` makes a mouse wheel or two-finger scroll act as a three-finger swipe. Three-finger up and down swipes leave and enter camera levels. A down swipe enters the tile below the mouse pointer, or the highlighted tile when no tile is below it. Three-finger horizontal swipes pan between sibling objects. The camera follows finger distance without easing while the fingers stay down. The source focus and selection remain unchanged below 35 percent. At 35 percent, the target selection becomes active and the transition becomes releasable. Release at or above that point completes the transition. Continue a down gesture through the workspace to reach its first terminal tile. The second release point enters that terminal directly. An earlier release restores the source camera. Only the blue selection border fades across the gesture. The scene keeps full opacity. Desktop consumes all three-finger scroll events before a terminal receives them. A new swipe replaces active camera motion. No swipe changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
 camera moves. Navigate mode shows a scaled version of that unchanged surface;
 it does not resize or reflow the terminal. Leaving Terminal mode therefore
@@ -101,8 +122,8 @@ cannot shift its content or scroll position.
 When several Desktops view the same native session, the PTY keeps one
 controller-owned rows-by-columns grid. Watchers fit and letterbox that grid in
 their own differently sized tiles; they do not resize or reflow it. A lone
-viewer follows its own dimensions automatically. **Sessions…** labels the owner
-as **CONTROL** and offers **Take Control and Resize** to an attached watcher.
+viewer follows its own dimensions automatically. **Sessions…** labels
+the owner and offers **Control** to an attached watcher. A restarted Desktop restores control only for sessions that it controlled before shutdown.
 
 Machinen never interprets an unmodified Escape in Terminal mode. The byte goes
 directly to the PTY, so terminal programs retain their normal Escape behavior.
@@ -118,20 +139,11 @@ source fades only after a five-point movement threshold.
 
 ## Creating terminals and workspaces
 
-`⌘N` always opens the same **New** chooser, regardless of the current camera
-level or whether a terminal is focused. It never silently assumes that the user
-wants another terminal in the current workspace, and opening or cancelling the
-chooser does not change persisted state.
-
-The chooser contains:
-
-1. **New workspace…**
-2. **New terminal in…**, followed by every existing workspace. The current
-   workspace may be highlighted as the suggested destination, but it is not
-   selected implicitly. Choosing a workspace creates a login-shell terminal
-   there and enters it.
-
-When no workspace exists, only **New workspace…** is available.
+`⌘N` enters the visual creation path for the current map level. In the workspace
+overview, it opens edit mode, selects the **Add Workspace** tile, and enters its
+form. At workspace or terminal level, it opens workspace edit mode, selects the
+**New Terminal** tile, and enters terminal creation. Opening or cancelling the
+flow does not change persisted state.
 
 ### New workspace flow
 
@@ -151,9 +163,9 @@ Creating a workspace chooses its default location before naming it:
 4. Machinen saves the workspace in the native store, creates its initial
    login-shell terminal, and enters it.
 
-Escape always moves back one dialog or remote parent-directory level; it closes
-the dialog only from the top-level New chooser. Picking a registered location
-restores its workspace; a location without a native record creates a new one.
+Escape leaves the active creation view without a persisted change. Picking a
+registered location restores its workspace; a location without a native record
+creates a new one.
 
 **SSH is a workspace location, not a special terminal type.** The SSH flow asks
 for an OpenSSH host or alias (for example `mini` or `peter@server`) and then a
@@ -163,10 +175,10 @@ configuration, and every terminal created in that workspace inherits it. The
 remote browser lists one directory level at a time over SSH, starting at the
 remote user's `$HOME`.
 
-Creating a terminal in the selected workspace is a nested **New terminal…**
-command under `⌘K`. It can create a login shell or run an arbitrary command.
-Escape returns from those choices to the context-aware command menu. There is no
-separate `⌘T` launcher; `⌘N` remains the explicit what-and-where chooser.
+The **New Terminal** tile contains its blue creation panel. It can create a login
+shell or run an arbitrary command without a detached palette. The same choices
+remain available as a nested **New terminal…** command under `⌘K`. There is no
+separate `⌘T` launcher.
 
 ## Open Selection With and context commands
 
@@ -181,14 +193,10 @@ the latest OSC 7 directory, falling back to the terminal's launch directory. Tru
 `SelectionOpener` implementations perform precise validation and ordinary API
 operations such as creating a terminal or revealing a path in Finder.
 
-`⌘K` and the application menu's **Commands…** organize commands around the
-three camera spaces: **Workspace Overview**, **Workspace**, and **Terminal**.
-The menu starts with the current space and cascades outward through its
-containing spaces. Workspace Overview therefore shows only overview commands;
-Workspace shows Workspace followed by Workspace Overview; and Terminal shows
-Terminal, Workspace, then Workspace Overview. Section headings keep each
-command's target explicit, and search preserves that section order while
-filtering the commands that are valid in the current context.
+`⌘K` and the application menu's **Commands…** open commands for the current
+camera space and its containing spaces. `⌘E` or `⇧⌘E` opens an action overlay
+above the visible map. The overlay keeps cards visible and shows only actions for
+the current level. Escape, `⌘E`, and `⇧⌘E` close the overlay.
 
 The menu contains seven built-in actions plus matching commands registered by
 trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
@@ -201,8 +209,8 @@ from this top-level menu dismisses it:
 1. **Disconnect terminal** immediately removes the terminal tile and disconnects
    its viewer while leaving the native session and process running. The same
    reconnect-or-kill toast used by `⌘W` appears.
-2. **New workspace…** opens the same location-then-name flow used by `⌘N`,
-   creates an initial login-shell terminal, and enters it.
+2. **New workspace…** opens its location-then-name command flow, creates an
+   initial login-shell terminal, and enters it.
 3. **New terminal…** opens nested choices for a login shell, an arbitrary
    command, or a new workspace from a folder.
 4. **Rename workspace…** changes the visible name while preserving the stable
@@ -210,12 +218,13 @@ from this top-level menu dismisses it:
 5. **Change workspace location…** chooses either a local folder or a remote
    `alias:path` reachable through the user's SSH configuration. It is available
    at any time, including while terminals are running.
-6. **Sessions…** opens a floating, keyboard-navigable list of every terminal
-   session in the workspace. Each row shows this Desktop's attachment state,
-   every connected client, and the current controller. Return attaches or
-   detaches normally; when this Desktop is an attached watcher, Return performs
-   **Take Control and Resize**, transferring writer and resize control while
-   leaving the previous controller connected.
+6. **Sessions…** opens the app-wide computer → workspace → session
+   tree. Session rows show this Desktop's attachment state, connected-client
+   count, and control state. Return attaches or detaches normally; when this
+   Desktop is an attached watcher, Return takes writer and resize control while
+   leaving the previous controller connected. The first key, paste, or terminal
+   mouse input from a watcher also takes control, resizes the PTY to that view,
+   and then sends the input. Focus and text selection do not take control.
    Delete or `⌘W` kills the session.
 7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
@@ -277,21 +286,20 @@ The worker publishes shell and foreground PIDs, process names, and activity over
 its private native protocol while continuing to journal byte-exact output and
 ordered resize events to SQLite. This works for attached, detached, local, and
 SSH sessions because observation happens beside the PTY rather than through a
-Desktop-side process-list guess. At workspace level the status bar renders
-terminals as spatially ordered activity pips; waiting and failed terminals
-receive attention and error tones. Both spatial minimaps mirror terminal
-activity directly onto their pane outlines, so they remain useful as idle and
-working indicators without rearranging the scene. The redundant built-in
-`machinen.activity` status widget is not rendered.
+Desktop-side process-list guess. Both spatial minimaps mirror terminal activity
+directly onto their pane outlines. They remain useful as idle and working
+indicators without rearranging the scene.
 
-## Programmable status bar
+## Top bar
 
-Machinen has one persistent status bar. The workspace title is a dropdown of all
+Machinen has one persistent status bar. Its breadcrumb is `Workspaces`,
+`Workspaces > workspace`, or `Workspaces > workspace > terminal`. Choosing
+`Workspaces` returns to the overview. The workspace segment is a dropdown of all
 workspaces in spatial order. Choosing its current workspace moves the camera one
 level out; choosing another workspace enters that workspace with the same slide
-and fade used by workspace shortcuts. At terminal level, the terminal title is a
-second dropdown of that workspace's terminals in spatial order, so choosing one
-focuses it with the same fixed-zoom pan used by pane shortcuts. Hovering either
+and fade used by workspace shortcuts. At terminal level, the terminal segment is
+a second dropdown of that workspace's terminals in spatial order, so choosing
+one focuses it with the same fixed-zoom pan used by pane shortcuts. Hovering either
 title reveals its bound path,
 and terminal hover detail also shows any observed foreground command. An API
 client can set a persistent title
@@ -304,52 +312,95 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip ends with the persistent spatial minimap. Immediately before
-it, a built-in `Desktop <version> · Session <version>` item identifies the app
-bundle version and bundled native session handler version. The remaining items
-are graphical at rest. The strip occupies
-its own layout row; the scene viewport starts below it, so terminal content
-never renders underneath the status bar. In a **workspace**, its activity
-monitor summarizes all terminals with visible active/idle/waiting tile counts,
-and the strip also shows aggregate tile CPU, aggregate tile network transfer,
-and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering
-reveals the branch, commits since its default-branch merge base, changed files,
-and added and deleted lines. In a **focused tile**, its minimap pane remains the
-activity indicator. When a running native session inside the workspace has no Desktop tile,
-a count item appears in the strip; clicking it opens the same panel as
-**Sessions…**. A focused terminal also shows **CONTROL** when this Desktop owns
-input and resize, or **VIEWING** otherwise. `+N` reports other attached viewers;
-hovering lists their names and roles, and clicking opens **Sessions…** with the
-focused session selected. The strip also shows CPU and network transfer for that PID and its local
-child processes, plus workspace branch changes. Git is
-scoped to the selected workspace. Open ports include listeners whose process
-working directory is the selected workspace folder or one of its descendants,
-on either the local Mac or the workspace's SSH host. Hover lists each TCP
-listener on its own line with the process and bind address;
-clicking the instrument presents those listeners, and choosing one opens its
-HTTP URL through the default macOS handler. Trusted TypeScript desktop services
-publish activity, Git, ports, CPU, and network widgets through the local API. Process network bytes come from macOS `nettop`. Tile activity is a
-label-free graphical indicator; Desktop supplies terminal-level state from native session telemetry.
+The top-right strip contains only the build version and the persistent spatial
+minimap. The version identifies the app bundle and the bundled session handler.
+No published status widget appears in the top bar. The strip occupies its own
+layout row, so terminal content never renders underneath it.
 
-Programs can publish scoped text, count, state, progress, timer, sparkline, and
-separator widgets through `status.set`, `status.list`, and `status.remove`.
-Sparklines accept line, area, bars, and mirrored styles with primary and
-secondary sample arrays. State widgets accept arrays of semantic pip states.
-Machine widgets override global widgets, workspace widgets override machine
-widgets, and terminal widgets override workspace widgets with the same ID. TTLs
-remove stale live data.
+Programs can publish scoped status data through `status.set`, `status.list`, and
+`status.remove`. Machine data overrides global data. Workspace data overrides
+machine data. Terminal data overrides workspace data with the same identifier.
+A TTL removes stale data. This data remains available through the API.
+
+## Hosts across computers
+
+Status items open the host browser. The browser uses host → workspace → terminal
+→ action. Type to filter the visible level. Use arrows and Return to move in.
+Use Escape to move out. Click a row to select it. The browser owns View, Take
+Control, and Detach. Machinen has no separate user-facing session manager.
+**Add Host…** accepts an OpenSSH alias or `user@host` and retains the existing
+OpenSSH/helper behavior.
+
+**Add Workspace…** chooses a computer, folder, and name, then saves the native
+workspace record without opening it or creating a terminal. Enter on a workspace
+explicitly opens it; Enter on a session explicitly attaches it. Each workspace
+row has its own **Close** action. Closing removes only that native workspace and
+its sessions, with a three-second **Undo** window before the close is committed
+on the owning computer. Stopping use of another computer is a separate confirmed
+action and never deletes or syncs its `sessions.sqlite3`, PTYs, or output.
+
+A computer is **online** when polling finds active sessions, **inactive** when it
+responds with none, and **unreachable** when the last poll failed; unreachable is
+retained separately from inactive. Each computer has at most one poll in flight,
+and repeated failures use bounded backoff. Matching names or paths never merge
+workspace identities.
+
+## Map edit overlay
+
+`⌘E` or `⇧⌘E` opens an action overlay above the current map. The map stays visible. At
+the overview level, each workspace card shows its own **Close** control. A blue
+dashed **Add Workspace** card creates a workspace only after a user selects it.
+The camera enters this card. A centered search panel uses the command palette
+style. Type to filter known workspace locations. Existing workspaces remain
+visible as disabled results. Select an available location, then enter its name.
+`⌘⇧↑` leaves the active form and returns to the edit overview. The Add Workspace
+tile stays selected. This flow never opens the command palette.
+
+A muted dashed ghost card represents a discovered workspace that is not attached
+to this Desktop. Existing, ghost, and Add Workspace cards are ordinary workspace
+tiles. The latter two use alternate tile rendering modes. All tiles use the same
+layout, selection state, configured spatial shortcuts, mouse input, and Return
+action. One click enters a creation tile. A double-click does the same. Select a
+ghost card to attach its workspace.
+
+At the workspace level, `⌘E` or `⇧⌘E` keeps the workspace visible. A blue dashed
+**New Terminal** tile uses the ordinary tile layout and input. One click or
+Return enters a centered blue creation panel inside that tile. The overlay offers **Rename Workspace** and **Close
+Workspace**. In terminal mode, the same shortcut always moves one level to the
+containing workspace. It then adds the New Terminal tile. The terminal count does
+not change this rule.
+
+In workspace mode, `⇧⌘[` and `⇧⌘]` move to the previous or next workspace. The
+camera stays at the workspace level, and the workspace list wraps. A hierarchy
+change from a keyboard shortcut keeps edit mode active. A click on a real tile
+exits edit mode before normal tile navigation. The overview replaces terminal
+actions with Add Workspace and workspace removal actions. Entry into a workspace restores New
+Terminal and terminal actions without terminal focus. Machinen exits map edit
+mode after any new terminal tile enters the workspace. Detach and Kill
+remain available through normal terminal commands. Escape, `⌘E`, and `⇧⌘E` close
+the overlay. They restore the workspace, tile selection, terminal focus, and map
+level that opened edit mode.
 
 ## Disconnecting and killing
 
 `⌘W` never closes Machinen's macOS window:
 
-- Inside a workspace, `⌘W` removes the selected terminal tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace.
+- Inside a workspace, `⌘W` stays at the current level and targets only the highlighted terminal tile. It does not enter general edit mode or add temporary tiles. A red verification panel appears inside that tile. No state changes before Return confirms the action. Confirmation removes the tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace. If a terminal has focus, the camera returns to the workspace map. Machinen never focuses the next terminal automatically.
+- In the workspace overview, `⌘W` targets only the highlighted workspace tile and shows the same local verification model before workspace removal.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
-- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the same workspace-scoped panel, which lists sessions by their durable native `workspace_id` membership, this Desktop's attachment state, connected clients, and control owner. Legacy records without membership temporarily fall back to launch-directory containment. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills the selection.
+- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the app-wide session browser with attachment, client, and control state. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills a selected session.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
-- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, it reconstructs local native workspaces automatically; selecting a registered SSH directory does the same remotely. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
+- Disconnected terminals persist across a Desktop restart. The configured Machinen server preserves one spatial scene for all Desktop clients. Native discovery does not reconstruct or replace that scene. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
 - In Navigate mode's workspace overview, `⌘W` still confirms before closing the workspace and killing all of its sessions.
 - Files in working directories are never deleted.
+
+## Performance benchmark
+
+Use **View → Show Performance HUD** or `⇧⌥⌘B` to toggle performance capture. The HUD shows UI pulse FPS, frame time, input delay, terminal echo delay, and main-thread stalls.
+
+Machinen writes structured JSON lines to `~/Library/Logs/Machinen/performance.jsonl`. The log contains input-to-frame samples, terminal input-to-output samples, camera animation spans, one-second metric snapshots, and stall events. It records key codes but never records typed text.
+
+Use **View → Reveal Performance Log** to locate the log. Use **View → Clear Performance Log** before a new comparison.
 
 ## Automated interaction check
 
@@ -365,5 +416,5 @@ swift run MachinenDesktop --interaction-tests
 Set `MACHINEN_STATUS_PREVIEW_PATH=/tmp/machinen-status.png` to also save the
 offscreen graphical status-bar fixture for visual review.
 
-It covers the explicit `⌘N` chooser, `⌘↓`/`⌘↑` hierarchy navigation, and
+It covers the spatial `⌘N` creation path, `⌘↓`/`⌘↑` hierarchy navigation, and
 keyboard-driven workspace creation, rename, and close.

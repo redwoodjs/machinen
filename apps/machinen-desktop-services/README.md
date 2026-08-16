@@ -33,7 +33,7 @@ the service is healthy, so stale menu items disappear after a crash.
 
 ## Status services
 
-The service publishes all of Desktop's live status items through `status.set`:
+The service publishes live status records for API clients through `status.set`:
 
 - local/SSH Git status
 - open TCP ports whose listener process is running in the selected workspace folder
@@ -44,8 +44,8 @@ The service publishes all of Desktop's live status items through `status.set`:
 Local and SSH workspace probes follow the selected workspace and refresh without
 restarting Desktop. Open ports are matched by listener PID and current working
 directory; a listener is included when its working directory is the workspace
-folder or one of its descendants. CPU and network widgets retain the same
-30-sample histories and spatial scopes as their native predecessors.
+folder or one of its descendants. CPU and network records retain 30-sample
+histories and spatial scopes. The Desktop top bar does not render these records.
 
 Every published widget has a short TTL, so stale data disappears if a probe or
 the service stops. A packaged `Machinen.app` includes a compiled copy of this

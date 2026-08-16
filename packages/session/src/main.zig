@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.5.7";
+const version = "0.5.9";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -512,6 +512,7 @@ const AttachRequest = struct {
     read_only: bool,
     latest_screen: bool,
     geometry_events: bool,
+    take_on_input: bool,
     client_id: ?u64,
     client_name: ?[]const u8,
 };
@@ -552,9 +553,37 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
         .read_only = request.read_only,
         .latest_screen = request.latest_screen,
         .geometry_events = request.geometry_events,
+        .take_on_input = request.take_on_input,
         .client_id = request.client_id,
         .client_name = request.client_name,
     }) catch |err| return fail(init, err);
+}
+
+fn parseAttachBooleanOption(
+    argument: []const u8,
+    read_only: *bool,
+    latest_screen: *bool,
+    geometry_events: *bool,
+    take_on_input: *bool,
+) bool {
+    std.debug.assert(argument.len > 0);
+    if (std.mem.eql(u8, argument, "--read-only")) {
+        read_only.* = true;
+        return true;
+    }
+    if (std.mem.eql(u8, argument, "--latest-screen")) {
+        latest_screen.* = true;
+        return true;
+    }
+    if (std.mem.eql(u8, argument, "--geometry-events")) {
+        geometry_events.* = true;
+        return true;
+    }
+    if (std.mem.eql(u8, argument, "--take-on-input")) {
+        take_on_input.* = true;
+        return true;
+    }
+    return false;
 }
 
 fn parseAttachRequest(args: anytype) !AttachRequest {
@@ -564,21 +593,17 @@ fn parseAttachRequest(args: anytype) !AttachRequest {
     var read_only = false;
     var latest_screen = false;
     var geometry_events = false;
+    var take_on_input = false;
     var client_id: ?u64 = null;
     var client_name: ?[]const u8 = null;
     while (args.next()) |argument| {
-        if (std.mem.eql(u8, argument, "--latest-screen")) {
-            latest_screen = true;
-            continue;
-        }
-        if (std.mem.eql(u8, argument, "--read-only")) {
-            read_only = true;
-            continue;
-        }
-        if (std.mem.eql(u8, argument, "--geometry-events")) {
-            geometry_events = true;
-            continue;
-        }
+        if (parseAttachBooleanOption(
+            argument,
+            &read_only,
+            &latest_screen,
+            &geometry_events,
+            &take_on_input,
+        )) continue;
         if (std.mem.eql(u8, argument, "--database")) {
             database = args.next() orelse return error.MissingDatabase;
             continue;
@@ -622,6 +647,7 @@ fn parseAttachRequest(args: anytype) !AttachRequest {
         .read_only = read_only,
         .latest_screen = latest_screen,
         .geometry_events = geometry_events,
+        .take_on_input = take_on_input,
         .client_id = client_id,
         .client_name = client_name,
     };
@@ -1071,7 +1097,7 @@ fn writeHelp(io: std.Io) !u8 {
         \\  machinen-session list --database <path>
         \\  machinen-session inspect --database <path> <id-or-name>
         \\  machinen-session attach --database <path> [--after <sequence>] [--read-only]
-        \\      [--latest-screen] [--geometry-events] [--client-id <number>]
+        \\      [--latest-screen] [--geometry-events] [--take-on-input] [--client-id <number>]
         \\      [--client-name <name>] <id-or-name>
         \\  machinen-session take --database <path> --client-id <number> <id-or-name>
         \\  machinen-session resize --database <path> --columns <n> --rows <n> <id-or-name>

@@ -12,11 +12,28 @@ enum InteractionTestRunner {
                 print("Machinen renderer reconnect test passed")
                 return 0
             }
-            try commandNAlwaysAsksWhatAndWhere()
+            if ProcessInfo.processInfo.environment["MACHINEN_AUTHORITY_TESTS"] == "1" {
+                try authoritativeSceneStoreSerializesAllClients()
+                print("Machinen authority test passed")
+                return 0
+            }
+            if ProcessInfo.processInfo.environment["MACHINEN_TERMINAL_INPUT_TESTS"] == "1" {
+                try sharedSessionGeometryFollowsItsController()
+                try scrollWheelReachesFocusedTerminalThroughPreview()
+                try modifiedWheelEmulatesThreeFingerSwipe()
+                try performanceStatisticsCalculatePercentiles()
+                print("Machinen terminal input tests passed")
+                return 0
+            }
+            try commandNEntersCreationTile()
+            try interactionPolicyReloadsOnlyOnRequest()
+            try mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
+            try authoritativeSceneStoreSerializesAllClients()
             try settingsFileIsAvailableInApplicationMenu()
             try commandArrowsMoveThroughTheHierarchy()
             try statusNavigationMenusSwitchAndZoomOut()
+            try cameraSwipesNavigateSpatialHierarchy()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
             try paneAndWorkspaceShortcutsTransitionAtFixedZoom()
@@ -30,7 +47,7 @@ enum InteractionTestRunner {
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
             try sharedSessionGeometryFollowsItsController()
-            try nativeWorkspaceRegistryRestoresLostDesktopState()
+            try registeredTargetDiscoveryRequiresExplicitOpenAndAttach()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
@@ -41,6 +58,8 @@ enum InteractionTestRunner {
             try terminalTileCaptionRendersWithSafeFonts()
             try ghosttyPreservesModifiedEnter()
             try scrollWheelReachesFocusedTerminalThroughPreview()
+            try modifiedWheelEmulatesThreeFingerSwipe()
+            try performanceStatisticsCalculatePercentiles()
             try pointerTilesSeparateClickFocusAndDrag()
             try singletonWorkspaceTileFillsSurface()
             try overviewUsesOnlyItsTopInset()
@@ -50,7 +69,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (38 scenarios)")
+            print("Machinen interaction tests passed (43 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -58,46 +77,566 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func commandNAlwaysAsksWhatAndWhere() throws {
+    private static func commandNEntersCreationTile() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
 
         deck.createNewWorkspaceOrTerminal()
+        guard let newTerminal = deck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        else {
+            throw InteractionTestFailure("⌘N did not add the New Terminal edit tile")
+        }
         var snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
-        try expect(snapshot.tiles.count == 1, "⌘N immediately created a terminal")
-        try harness.pressReturn(on: harness.commandPalette(in: deck))
-        snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "choosing an existing workspace created a workspace")
-        try expect(snapshot.tiles.count == 2, "choosing an existing workspace did not add a terminal")
         try expect(
-            Set(snapshot.tiles.map(\.workspaceId)) == ["ws_alpha"],
-            "the new terminal was added to the wrong workspace"
+            try harness.uiLevel(of: deck) == "workspace"
+                && newTerminal.isSelected
+                && deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘N did not enter edit mode and select the New Terminal tile"
+        )
+        try expect(snapshot.tiles.count == 1, "⌘N immediately created a terminal")
+
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        guard let terminalCard = newTerminal.subviews.first(where: {
+            $0 is AddTerminalCardView
+        }) as? AddTerminalCardView else {
+            throw InteractionTestFailure("⌘N did not open creation inside the New Terminal tile")
+        }
+        try expect(
+            window.firstResponder === terminalCard
+                && terminalCard.selectedActionTitle == "New login shell",
+            "⌘N did not enter the selected New Terminal tile"
+        )
+        try harness.pressReturn(on: terminalCard)
+        snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.tiles.count == 2 && Set(snapshot.tiles.map(\.workspaceId)) == ["ws_alpha"],
+            "the New Terminal tile created its terminal in the wrong workspace"
+        )
+
+        let focusedBeforeCancel = try harness.focusedTileID(of: deck)
+        deck.createNewWorkspaceOrTerminal()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        guard let cancelCard = deck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? AddTerminalCardView })
+            .first
+        else {
+            throw InteractionTestFailure("⌘N did not reopen inline terminal creation")
+        }
+        try expect(
+            cancelCard.performShortcut(.selectDown)
+                && cancelCard.performShortcut(.enter)
+                && cancelCard.isEnteringCommand,
+            "the inline terminal panel did not enter its command form"
+        )
+        try harness.type("echo ready", into: cancelCard)
+        try harness.pressEscape(on: cancelCard)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == focusedBeforeCancel,
+            "cancelling the ⌘N flow did not restore its focused terminal"
         )
 
         _ = try deck.performAPIOperation("ui.overview", params: [:])
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
         deck.createNewWorkspaceOrTerminal()
-        let newChooser = try harness.commandPalette(in: deck)
-        try harness.type("new workspace", into: newChooser)
-        try harness.pressReturn(on: newChooser)
+        guard let addWorkspace = deck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .first(where: { $0.renderingMode == .newWorkspace }),
+              let addCard = addWorkspace.subviews.first(where: { $0 is AddWorkspaceCardView })
+                as? AddWorkspaceCardView
+        else {
+            throw InteractionTestFailure("⌘N did not enter the New Workspace edit tile")
+        }
         snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "a workspace was created before naming it")
-        try expect(snapshot.tiles.count == 2, "a terminal was created before choosing a workspace location")
-
-        let locationPalette = try harness.commandPalette(in: deck)
-        try harness.type("alpha", into: locationPalette)
-        try harness.pressReturn(on: locationPalette)
-        let namePalette = try harness.commandPalette(in: deck)
-        try harness.type("beta", into: namePalette)
-        try harness.pressReturn(on: namePalette)
-        snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 2, "a shared location did not create a distinct workspace")
-        try expect(snapshot.tiles.count == 3, "the new workspace did not contain a terminal")
-        try expect(snapshot.workspaces.map(\.name) == ["alpha", "beta"], "the chosen workspace name changed")
         try expect(
-            Set(snapshot.workspaces.map(\.workingDirectory)).count == 1,
-            "workspaces could not share the same default directory"
+            addWorkspace.isSelected && window.firstResponder === addCard,
+            "⌘N did not select and enter the New Workspace tile"
+        )
+        try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
+    }
+
+    private static func interactionPolicyReloadsOnlyOnRequest() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-policy-tests-\(UUID().uuidString)")
+        let policyURL = directory.appendingPathComponent("interactions.json")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = InteractionIntentEngine(url: policyURL)
+
+        try expect(
+            FileManager.default.fileExists(atPath: policyURL.path),
+            "the intent engine did not create its reloadable policy file"
+        )
+        let original = engine.snapshot()
+        try expect(
+            original.rule(for: .close, at: .terminal)?.camera == InteractionIntentPolicy.Camera.none,
+            "the default terminal close rule requested camera motion"
+        )
+
+        let changedRules = original.rules.map { rule in
+            guard rule.level == .terminal, rule.intent == .close else { return rule }
+            return InteractionIntentPolicy.Rule(
+                level: rule.level,
+                intent: rule.intent,
+                target: rule.target,
+                panel: rule.panel,
+                camera: .directIfNeeded,
+                effect: rule.effect
+            )
+        }
+        let changed = InteractionIntentPolicy(
+            version: 1,
+            cameraDurationMilliseconds: 120,
+            rules: changedRules
+        )
+        try InteractionIntentEngine.encodedPolicy(changed).write(to: policyURL, options: .atomic)
+        try expect(
+            engine.snapshot() == original,
+            "the intent engine reloaded the policy without a manual request"
+        )
+        try expect(
+            engine.reloadNow() && engine.snapshot() == changed,
+            "the intent engine did not reload a valid policy change"
+        )
+
+        let pinnedSession = engine.snapshot()
+        try InteractionIntentEngine.encodedPolicy(original).write(to: policyURL, options: .atomic)
+        try expect(
+            engine.reloadNow()
+                && engine.snapshot() == original
+                && pinnedSession.rule(for: .close, at: .terminal)?.camera == .directIfNeeded,
+            "a policy reload changed an active policy snapshot"
+        )
+
+        let acceptedGeneration = engine.generation
+        let unsafeRules = original.rules.map { rule in
+            guard rule.level == .terminal, rule.intent == .close else { return rule }
+            return InteractionIntentPolicy.Rule(
+                level: rule.level,
+                intent: rule.intent,
+                target: .addTerminal,
+                panel: .newTerminal,
+                camera: rule.camera,
+                effect: .createTerminal
+            )
+        }
+        let unsafePolicy = InteractionIntentPolicy(
+            version: 1,
+            cameraDurationMilliseconds: 200,
+            rules: unsafeRules
+        )
+        try InteractionIntentEngine.encodedPolicy(unsafePolicy).write(
+            to: policyURL,
+            options: .atomic
+        )
+        try expect(
+            !engine.reloadNow()
+                && engine.generation == acceptedGeneration
+                && engine.snapshot() == original,
+            "an unsafe action shape replaced the last valid policy"
+        )
+
+        try Data("{ invalid policy".utf8).write(to: policyURL, options: .atomic)
+        try expect(
+            !engine.reloadNow()
+                && engine.generation == acceptedGeneration
+                && engine.snapshot() == original,
+            "an invalid policy replaced the last valid policy"
+        )
+    }
+
+    private static func mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
+
+        deck.toggleMapEditOverlay()
+        guard let scene = deck.subviews.first(where: { view in
+            view.subviews.contains { $0 is WorkspaceClusterView }
+        }),
+              let workspace = scene.subviews.compactMap({ $0 as? WorkspaceClusterView }).first(where: {
+                  $0.renderingMode == .workspace
+              }),
+              let addCluster = scene.subviews.compactMap({ $0 as? WorkspaceClusterView }).first(where: {
+                  $0.renderingMode == .newWorkspace
+              }),
+              let overlay = deck.subviews.first(where: { $0 is MapEditOverlayView })
+                as? MapEditOverlayView
+        else {
+            throw InteractionTestFailure("the overview edit map did not show its add workspace card")
+        }
+        try expect(addCluster.frame.size == workspace.frame.size,
+                   "the add workspace tile did not use the overview tile size")
+        try expect(overlay.displayedActionTitles.isEmpty,
+                   "the overview edit map still showed the Add Host action")
+        try expect(deck.window?.firstResponder === overlay,
+                   "the overview edit map did not capture selection keys")
+        try harness.click(addCluster, in: window)
+        guard let firstAddCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
+            as? AddWorkspaceCardView
+        else {
+            throw InteractionTestFailure("the add workspace tile did not show its form rendering")
+        }
+        try expect(deck.window?.firstResponder === firstAddCard,
+                   "the in-tile workspace form did not capture immediate arrow input")
+        try expect(
+            abs(firstAddCard.displayedPanelFrame.midX - firstAddCard.bounds.midX) < 0.1
+                && abs(firstAddCard.displayedPanelFrame.midY - firstAddCard.bounds.midY) < 0.1,
+            "the new workspace search was not centered in its workspace tile"
+        )
+        let shortcutMonitor = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { deck.performShortcut($0) }
+        let leaveEvent = try harness.commandShiftArrow(keyCode: 126)
+        try expect(shortcutMonitor.process(leaveEvent) == nil,
+                   "the leave shortcut did not deselect the active new workspace form")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try expect(
+            firstAddCard.superview == nil && !overlay.isHidden
+                && deck.window?.firstResponder === overlay,
+            "the leave shortcut did not return to the edit overview"
+        )
+        try expect(deck.performShortcut(.enter),
+                   "the add workspace tile did not reopen after leave")
+        guard let addCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
+            as? AddWorkspaceCardView
+        else {
+            throw InteractionTestFailure("the add workspace tile did not restore its form")
+        }
+        let selectedWorkspace = try harness.selectedWorkspaceID(of: deck)
+        try harness.type("alpha", into: addCard)
+        try expect(
+            addCard.displayedSearchQuery == "alpha"
+                && addCard.disabledSourceTitles == ["alpha", "beta"],
+            "the new workspace search did not show created workspaces as disabled"
+        )
+        try harness.pressReturn(on: addCard)
+        try expect(addCard.isChoosingLocation,
+                   "the new workspace search selected a disabled workspace")
+        for _ in "alpha" { try harness.pressDelete(on: addCard) }
+        let firstDown = try harness.keyEvent(characters: "", keyCode: 125)
+        let secondDown = try harness.keyEvent(characters: "", keyCode: 125)
+        try expect(
+            addCard.selectedSourceTitle == "alpha"
+                && shortcutMonitor.process(firstDown) == nil
+                && addCard.selectedSourceTitle == "beta"
+                && shortcutMonitor.process(secondDown) == nil
+                && addCard.selectedSourceTitle == "Home",
+            "one configured down event did not move exactly one source row"
+        )
+        try expect(try harness.selectedWorkspaceID(of: deck) == selectedWorkspace,
+                   "an in-card source arrow changed the overview workspace")
+        try expect(deck.performShortcut(.enter),
+                   "the configured enter shortcut did not continue the workspace form")
+        try harness.type("gamma", into: addCard)
+        try harness.pressReturn(on: addCard)
+        let created = try harness.snapshot(of: deck)
+        try expect(created.workspaces.map(\.name).contains("gamma"),
+                   "the in-card workspace form did not create its named workspace")
+        try expect(!deck.subviews.contains(where: { $0 is CommandPaletteView }),
+                   "the in-card workspace form opened the command palette")
+
+        let escapeDeck = harness.makeDeck(workspaces: [harness.workspace("beta", terminalCount: 1)])
+        _ = try escapeDeck.performAPIOperation("ui.overview", params: [:])
+        escapeDeck.toggleMapEditOverlay()
+        guard let reopened = escapeDeck.subviews.first(where: { $0 is MapEditOverlayView }) else {
+            throw InteractionTestFailure("the overview edit map did not open for Escape")
+        }
+        try harness.pressEscape(on: escapeDeck)
+        try expect(
+            reopened.superview == nil
+                && !escapeDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "Escape did not close map edit mode after the deck received focus"
+        )
+
+        let singletonDeck = harness.makeDeck(workspaces: [
+            harness.workspace("solo", terminalCount: 1),
+        ])
+        let singletonWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { singletonWindow.close() }
+        singletonWindow.contentView = singletonDeck
+        singletonWindow.makeFirstResponder(singletonDeck)
+        singletonDeck.layoutSubtreeIfNeeded()
+        try expect(try harness.uiLevel(of: singletonDeck) == "terminal",
+                   "the singleton workspace did not start at its terminal")
+        singletonDeck.toggleMapEditOverlay()
+        guard let singletonOverlay = singletonDeck.subviews.first(where: {
+            $0 is MapEditOverlayView
+        }) as? MapEditOverlayView,
+              let newTerminalTile = singletonDeck.subviews.lazy
+                .flatMap(\.subviews)
+                .compactMap({ $0 as? WorkspaceClusterView })
+                .flatMap(\.subviews)
+                .compactMap({ $0 as? TerminalTileView })
+                .first(where: { $0.renderingMode == .newTerminal })
+        else {
+            throw InteractionTestFailure("singleton map editing did not add a New Terminal tile")
+        }
+        try expect(
+            try harness.uiLevel(of: singletonDeck) == "workspace"
+                && singletonOverlay.displayedActionTitles.allSatisfy({ !$0.contains("New terminal") })
+                && newTerminalTile.session.workspace == "solo",
+            "singleton map editing did not leave the terminal for the workspace tile map"
+        )
+        try harness.pressEscape(on: singletonDeck)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.uiLevel(of: singletonDeck) == "terminal"
+                && (try harness.focusedTileID(of: singletonDeck)) == "tile_solo_0",
+            "Escape did not restore the terminal that opened edit mode"
+        )
+        singletonDeck.toggleMapEditOverlay()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        guard let activeNewTerminalTile = singletonDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        else {
+            throw InteractionTestFailure("terminal edit did not show the New Terminal tile")
+        }
+        try harness.click(activeNewTerminalTile, in: singletonWindow)
+        guard let terminalCard = activeNewTerminalTile.subviews.first(where: {
+            $0 is AddTerminalCardView
+        }) else {
+            throw InteractionTestFailure("one click did not open inline terminal creation")
+        }
+        try harness.pressReturn(on: terminalCard)
+        try expect(
+            try harness.snapshot(of: singletonDeck).tiles.count == 2
+                && !singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "the added terminal tile did not exit map edit mode"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        singletonDeck.toggleMapEditOverlay()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let multiTerminalEditTile = singletonDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        try expect(
+            try harness.uiLevel(of: singletonDeck) == "workspace"
+                && singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView })
+                && multiTerminalEditTile != nil,
+            "terminal edit did not return to workspace mode after a second terminal existed"
+        )
+        singletonDeck.toggleMapEditOverlay()
+
+        let switchDeck = harness.makeDeck(workspaces: [
+            harness.workspace("switch-alpha", terminalCount: 2),
+            harness.workspace("switch-beta", terminalCount: 2),
+        ])
+        try expect(switchDeck.zoomInOneLevel()
+                   && (try harness.uiLevel(of: switchDeck)) == "workspace",
+                   "the workspace switch proof did not enter workspace mode")
+        let workspaceShortcut = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { switchDeck.performShortcut($0) }
+        try expect(
+            workspaceShortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
+            "the next-workspace shortcut was rejected in workspace mode"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-beta"
+                && (try harness.uiLevel(of: switchDeck)) == "workspace",
+            "the next-workspace shortcut left workspace mode"
+        )
+        try expect(
+            workspaceShortcut.process(harness.commandShiftBracket(keyCode: 33)) == nil,
+            "the previous-workspace shortcut was rejected in workspace mode"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-alpha",
+                   "the previous-workspace shortcut did not return to the prior workspace")
+        switchDeck.toggleMapEditOverlay()
+        let workspaceEditTile = switchDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        try expect(
+            try harness.uiLevel(of: switchDeck) == "workspace"
+                && workspaceEditTile?.session.workspaceID == "ws_switch-alpha",
+            "workspace edit did not stay in workspace mode"
+        )
+        try expect(
+            workspaceShortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
+            "workspace edit rejected the next-workspace shortcut"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-beta"
+                && workspaceEditTile?.session.workspaceID == "ws_switch-beta",
+            "the New Terminal tile did not follow the workspace switch"
+        )
+        try expect(switchDeck.performShortcut(.leave),
+                   "workspace edit did not navigate to the edit overview")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let overviewAddTile = switchDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .first(where: { $0.renderingMode == .newWorkspace })
+        try expect(
+            try harness.uiLevel(of: switchDeck) == "overview"
+                && overviewAddTile != nil
+                && switchDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "edit mode did not expose workspace actions after overview navigation"
+        )
+        try expect(switchDeck.performShortcut(.enter),
+                   "the edit overview did not enter its selected workspace")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let returnedTerminalTile = switchDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        try expect(
+            try harness.uiLevel(of: switchDeck) == "workspace"
+                && returnedTerminalTile?.session.workspaceID == "ws_switch-beta",
+            "edit mode did not expose terminal actions after workspace navigation"
+        )
+        switchDeck.toggleMapEditOverlay()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-alpha"
+                && (try harness.uiLevel(of: switchDeck)) == "workspace",
+            "closing edit mode did not restore the workspace that opened it"
+        )
+
+        let externalDeck = harness.makeDeck(workspaces: [
+            harness.workspace("external", terminalCount: 1),
+        ])
+        externalDeck.toggleMapEditOverlay()
+        try expect(externalDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+                   "the external tile proof did not enter map edit mode")
+        _ = try externalDeck.performAPIOperation("tile.create", params: [
+            "workspaceId": "ws_external",
+        ])
+        try expect(
+            !externalDeck.subviews.contains(where: { $0 is MapEditOverlayView })
+                && (try harness.snapshot(of: externalDeck).tiles.count) == 2,
+            "an externally added tile did not exit map edit mode"
+        )
+    }
+
+    private static func authoritativeSceneStoreSerializesAllClients() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-authority-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try AuthoritativeStore(databaseURL: root.appendingPathComponent("scene.sqlite3"))
+        try store.registerClient(id: "air", user: "test")
+        try store.registerClient(id: "mini", user: "test")
+        let first = try store.apply(
+            type: AuthoritativeSceneCommand.sceneKind,
+            recordID: AuthoritativeSceneCommand.sceneID,
+            data: Data("one".utf8),
+            clientID: "air",
+            idempotencyKey: "air-1"
+        )
+        let repeated = try store.apply(
+            type: AuthoritativeSceneCommand.sceneKind,
+            recordID: AuthoritativeSceneCommand.sceneID,
+            data: Data("one".utf8),
+            clientID: "air",
+            idempotencyKey: "air-1"
+        )
+        let second = try store.apply(
+            type: AuthoritativeSceneCommand.sceneKind,
+            recordID: AuthoritativeSceneCommand.sceneID,
+            data: Data("two".utf8),
+            clientID: "mini",
+            idempotencyKey: "mini-1"
+        )
+        let snapshot = try store.snapshot()
+        try expect(
+            first == repeated
+                && second.revision == first.revision + 1
+                && snapshot.revision == second.revision
+                && snapshot.records[AuthoritativeSceneCommand.sceneKind]?[AuthoritativeSceneCommand.sceneID]
+                    == Data("two".utf8),
+            "the authoritative scene did not serialize both Desktop clients"
+        )
+        if ProcessInfo.processInfo.environment["MACHINEN_STATE_DIR"] != nil {
+            let address = MachinenServerAddress(value: "unix://test")
+            let air = AuthoritativeSceneClient(address: address, clientID: "air-command")
+            let mini = AuthoritativeSceneClient(address: address, clientID: "mini-command")
+            let initial = try air.snapshot()
+            let firstRevision = try air.apply(
+                data: Data("shared-one".utf8),
+                idempotencyKey: "air-command-1",
+                expectedRevision: initial.revision
+            )
+            let observed = try mini.snapshot()
+            try expect(
+                observed.revision == firstRevision && observed.data == Data("shared-one".utf8),
+                "two Desktop clients did not read one command-backed scene"
+            )
+        }
+        try expect(
+            MachinenServerAddress.resolve(
+                commandOption: "ssh://command",
+                environment: ["MACHINEN_SERVER": "ssh://environment"],
+                savedSetting: "ssh://saved"
+            ).value == "ssh://command"
+                && MachinenServerAddress.resolve(
+                    commandOption: nil,
+                    environment: ["MACHINEN_SERVER": "ssh://environment"],
+                    savedSetting: "ssh://saved"
+                ).value == "ssh://environment"
+                && MachinenServerAddress.resolve(
+                    commandOption: nil,
+                    environment: [:],
+                    savedSetting: "ssh://saved"
+                ).value == "ssh://saved",
+            "the scene server selection order changed"
         )
     }
 
@@ -223,6 +762,22 @@ enum InteractionTestRunner {
                 && settingsItem?.keyEquivalentModifierMask == [.command],
             "the settings menu item did not use the standard ⌘, shortcut"
         )
+        let policyItem = appMenu?.items.first(where: {
+            $0.title == "Open Interaction Policy"
+        })
+        try expect(
+            policyItem?.action == NSSelectorFromString("openInteractionPolicyFile")
+                && policyItem?.target === delegate,
+            "the application menu did not expose the interaction policy"
+        )
+        let reloadPolicyItem = appMenu?.items.first(where: {
+            $0.title == "Reload Interaction Policy"
+        })
+        try expect(
+            reloadPolicyItem?.action == NSSelectorFromString("reloadInteractionPolicy")
+                && reloadPolicyItem?.target === delegate,
+            "the application menu did not expose manual policy reload"
+        )
         let newItems = appMenu?.items.filter {
             $0.action == NSSelectorFromString("createNewWorkspaceOrTerminal")
         } ?? []
@@ -259,6 +814,24 @@ enum InteractionTestRunner {
             }),
             "the application menu did not expose ⇧⌘K for commands"
         )
+        let editMapItems = appMenu?.items.filter {
+            $0.action == NSSelectorFromString("toggleMapEdit")
+        } ?? []
+        try expect(
+            editMapItems.contains(where: {
+                $0.keyEquivalent == "e" && $0.keyEquivalentModifierMask == [.command]
+            }),
+            "the application menu did not expose ⌘E for map editing"
+        )
+        try expect(
+            editMapItems.contains(where: {
+                $0.keyEquivalent == "e"
+                    && $0.keyEquivalentModifierMask == [.command, .shift]
+                    && $0.isHidden
+                    && $0.allowsKeyEquivalentWhenHidden
+            }),
+            "the application menu did not expose ⇧⌘E for map editing"
+        )
     }
 
     private static func commandArrowsMoveThroughTheHierarchy() throws {
@@ -270,13 +843,19 @@ enum InteractionTestRunner {
         ])
 
         try expect(try harness.uiLevel(of: deck) == "overview", "the deck did not start in overview")
-        try expect(try harness.statusTitle(of: deck) == "alpha", "the overview did not title the selected workspace")
+        try expect(try harness.statusTitle(of: deck) == "Workspaces", "the overview breadcrumb was incorrect")
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↓ did not enter the workspace")
-        try expect(try harness.statusTitle(of: deck) == "alpha", "the workspace did not retain the single bar title")
+        try expect(
+            try harness.statusTitle(of: deck) == "Workspaces > alpha",
+            "the workspace breadcrumb was incorrect"
+        )
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "terminal", "⌘↓ did not focus the terminal")
-        try expect(try harness.statusTitle(of: deck) == "alpha > shell 1", "the terminal status title did not include workspace and terminal names")
+        try expect(
+            try harness.statusTitle(of: deck) == "Workspaces > alpha > shell 1",
+            "the terminal breadcrumb was incorrect"
+        )
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
@@ -296,9 +875,9 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("the deck did not install its status bar")
         }
         try expect(
-            statusBar.widgets.first(where: { $0.id == "machinen.versions" })?.value
-                == MachinenBuildVersions.statusText,
-            "the status bar did not show the Desktop and session-handler versions"
+            statusBar.widgets.map(\.id) == ["machinen.versions"]
+                && statusBar.widgets.first?.value == MachinenBuildVersions.statusText,
+            "the top bar did not limit its mini items to the version"
         )
 
         try expect(
@@ -306,11 +885,15 @@ enum InteractionTestRunner {
             "the workspace title did not provide a spatially ordered dropdown"
         )
         try expect(
-            statusBar.workspaceMenu().items.map(\.state) == [.on, .off],
-            "the workspace dropdown did not mark the current workspace"
+            statusBar.workspaceMenu().items.map(\.state) == [.off, .off],
+            "the overview breadcrumb marked an entered workspace"
         )
 
         deck.zoomInOneLevel()
+        try expect(
+            statusBar.workspaceMenu().items.map(\.state) == [.on, .off],
+            "the workspace dropdown did not mark the current workspace"
+        )
         deck.zoomInOneLevel()
         try expect(
             statusBar.terminalMenu().items.map(\.title) == ["shell 1", "shell 2"],
@@ -340,6 +923,136 @@ enum InteractionTestRunner {
             statusBar.chooseTerminal("term_beta_1")
                 && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
             "the terminal dropdown did not follow the selected workspace"
+        )
+        statusBar.onOverviewSelect?()
+        try expect(
+            (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.statusTitle(of: deck)) == "Workspaces"
+                && statusBar.selectedWorkspaceID == nil,
+            "the Workspaces breadcrumb did not return to the overview"
+        )
+    }
+
+    private static func cameraSwipesNavigateSpatialHierarchy() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 2),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
+        guard let betaCluster = deck.subviews
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .first(where: { $0.workspaceID == "ws_beta" })
+        else {
+            throw InteractionTestFailure("the swipe test did not find the beta workspace")
+        }
+        let betaPoint = betaCluster.convert(
+            NSPoint(x: betaCluster.bounds.midX, y: betaCluster.bounds.midY),
+            to: nil
+        )
+
+        try expect(
+            deck.previewCameraSwipeForTesting(
+                .down,
+                progress: 0.20,
+                pointerLocation: betaPoint
+            )
+                && (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha"
+                && (deck.selectedBorderAlphaForTesting() ?? 1) < 1,
+            "an early camera swipe changed selection or did not fade its border"
+        )
+        deck.finishCameraSwipeForTesting()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha"
+                && abs((deck.selectedBorderAlphaForTesting() ?? 0) - 1) < 0.01,
+            "an early camera release did not restore its source"
+        )
+        try expect(
+            deck.previewCameraSwipeForTesting(
+                .down,
+                progress: 0.40,
+                pointerLocation: betaPoint
+            )
+                && (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.selectedWorkspaceID(of: deck)) == "ws_beta"
+                && (deck.selectedBorderAlphaForTesting() ?? 1) < 1,
+            "a releasable camera swipe did not activate its target border"
+        )
+        deck.finishCameraSwipeForTesting()
+        try expect(
+            (try harness.uiLevel(of: deck)) == "workspace"
+                && (try harness.statusTitle(of: deck)) == "Workspaces > beta",
+            "a releasable camera swipe did not enter the workspace under the pointer"
+        )
+        try expect(
+            deck.performCameraSwipe(.left, fingerCount: 2)
+                && (try harness.selectedTileID(of: deck)) == "tile_beta_1",
+            "a two-finger map swipe did not select and pan to the next terminal"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        guard let firstTerminal = betaCluster.subviews
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.session.tileID == "tile_beta_0" })
+        else {
+            throw InteractionTestFailure("the swipe test did not find its pointer terminal")
+        }
+        let terminalPoint = firstTerminal.convert(
+            NSPoint(x: firstTerminal.bounds.midX, y: firstTerminal.bounds.midY),
+            to: nil
+        )
+        try expect(
+            deck.performCameraSwipe(.down, fingerCount: 3, pointerLocation: terminalPoint)
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0"
+                && (try harness.statusTitle(of: deck))
+                    == "Workspaces > beta > shell 1",
+            "a replacement three-finger swipe did not enter the terminal under the pointer"
+        )
+        try expect(
+            !deck.performCameraSwipe(.left, fingerCount: 2)
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "a two-finger camera swipe stole focused terminal scrolling"
+        )
+        try expect(
+            deck.performCameraSwipe(.left, fingerCount: 3)
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
+            "a three-finger horizontal swipe did not pan to the next terminal"
+        )
+        try expect(
+            deck.performCameraSwipe(.up, fingerCount: 3)
+                && deck.performCameraSwipe(.up, fingerCount: 3)
+                && (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.statusTitle(of: deck)) == "Workspaces",
+            "three-finger up swipes did not return through the hierarchy"
+        )
+        try expect(
+            deck.previewCameraSwipeForTesting(
+                .down,
+                progress: 1.40,
+                pointerLocation: betaPoint
+            )
+                && (try harness.uiLevel(of: deck)) == "overview",
+            "a continuous camera swipe did not preview through the workspace"
+        )
+        deck.finishCameraSwipeForTesting()
+        try expect(
+            (try harness.focusedTileID(of: deck)) == "tile_beta_0"
+                && (try harness.statusTitle(of: deck))
+                    == "Workspaces > beta > shell 1",
+            "a continuous camera swipe did not enter the terminal tile"
         )
     }
 
@@ -686,7 +1399,15 @@ enum InteractionTestRunner {
             !minimap.isHidden && minimap.alphaValue > 0.99,
             "the workspace minimap faded before its hold completed"
         )
-        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
+        let statusMinimapDeadline = Date().addingTimeInterval(2)
+        while Date() < statusMinimapDeadline,
+              !(minimap.isHidden && !statusMinimap.isHidden
+                && statusMinimap.representedWorkspaces.contains(where: {
+                    $0.id == "ws_beta" && $0.isActive
+                }))
+        {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
         try expect(
             minimap.isHidden && !statusMinimap.isHidden
                 && statusMinimap.representedWorkspaces.contains(where: {
@@ -782,13 +1503,13 @@ enum InteractionTestRunner {
         try expect(
             shortcut.process(
                 try harness.keyEvent(characters: "", keyCode: 124, modifierFlags: [])
-            ) == nil && (try harness.statusTitle(of: deck)) == "beta",
+            ) == nil && (try harness.selectedWorkspaceID(of: deck)) == "ws_beta",
             "the select-right shortcut did not select the next workspace"
         )
         try expect(
             shortcut.process(
                 try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [])
-            ) == nil && (try harness.statusTitle(of: deck)) == "alpha",
+            ) == nil && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha",
             "the select-left shortcut did not restore the first workspace"
         )
         try expect(
@@ -1060,6 +1781,10 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
+        )
+        try expect(
+            statusBar.widgets.map(\.id) == ["machinen.versions"],
+            "published status data added a top-bar mini item"
         )
         try expect(
             effective.allSatisfy { $0.id != "machinen.activity" }
@@ -1451,10 +2176,7 @@ enum InteractionTestRunner {
             "the status bar did not show the unrepresented workspace session"
         )
 
-        deck.toggleCommandPalette()
-        let palette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: palette)
-        try harness.pressReturn(on: palette)
+        deck.toggleAvailableSessions()
         let manager = try harness.availableSessions(in: deck)
         try expect(
             manager.items.map(\.session.id) == ["term_external", "term_alpha_0"],
@@ -1484,10 +2206,7 @@ enum InteractionTestRunner {
             "the represented session remained available in the status bar"
         )
 
-        deck.toggleCommandPalette()
-        let allSessionsPalette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: allSessionsPalette)
-        try harness.pressReturn(on: allSessionsPalette)
+        deck.toggleAvailableSessions()
         let allSessions = try harness.availableSessions(in: deck)
         try expect(
             allSessions.items.count == 2 && allSessions.items.allSatisfy { $0.isAttached },
@@ -1518,10 +2237,7 @@ enum InteractionTestRunner {
               let detachedTerminalID = detachedTile["terminalId"] as? String
         else { throw InteractionTestFailure("the deck had no tile to detach") }
         _ = try deck.performAPIOperation("tile.detach", params: ["tileId": detachedTileID])
-        deck.toggleCommandPalette()
-        let detachedPalette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: detachedPalette)
-        try harness.pressReturn(on: detachedPalette)
+        deck.toggleAvailableSessions()
         let detachedSessions = try harness.availableSessions(in: deck)
         try expect(
             detachedSessions.items.first(where: { $0.session.id == detachedTerminalID })?
@@ -1581,8 +2297,6 @@ enum InteractionTestRunner {
             ),
         ])
         let deck = harness.makeDeck(workspaces: [alpha])
-        deck.toggleAvailableSessions()
-        let panel = try harness.availableSessions(in: deck)
         let status = try harness.effectiveStatusWidgets(of: deck)
         let controlStatus = status.first { $0.id == "machinen.sessionControl" }
         try expect(
@@ -1590,15 +2304,18 @@ enum InteractionTestRunner {
                 && controlStatus?.tooltip?.contains("Machinen Desktop on another Mac") == true,
             "the status bar did not show control ownership and the other viewer"
         )
+        deck.toggleTargetSessions(selecting: terminal.id)
+        let browser = try harness.targetSessions(in: deck)
         try expect(
-            panel.items.first?.canTakeControl == true
-                && panel.items.first?.primaryActionTitle == "Take Control and Resize",
-            "the attached watcher did not offer to take control"
+            browser.items.first(where: { $0.sessionID == terminal.id })?.sessionAction
+                == .takeControl,
+            "the shared workspace tree did not offer control for the attached watcher"
         )
-        try harness.pressReturn(on: panel)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
         try expect(
             harness.takenControlSessionIDs == [terminal.id],
-            "the session panel did not request control for its own attachment"
+            "the shared workspace tree did not request control for its own attachment"
         )
     }
 
@@ -1640,6 +2357,14 @@ enum InteractionTestRunner {
                 && terminal.rendersAuthoritativeGrid,
             "the watcher did not preserve the controller's cell grid"
         )
+        let displayScale = MachinenTerminalView.aspectFitScale(
+            sourcePixels: pixels,
+            viewportPixels: (width: 2_400, height: 1_440)
+        )
+        try expect(
+            displayScale.width == 1 && displayScale.height < 1,
+            "the watcher did not center its wide authoritative terminal grid"
+        )
         terminal.ghosttyTitleChanged(
             "machinen.geometry:v1:149:42:9:\(session.viewerClientID):"
                 + "\(session.viewerClientID):1:149:42"
@@ -1669,6 +2394,22 @@ enum InteractionTestRunner {
         try expect(
             harness.takenControlSessionIDs.isEmpty,
             "focusing a watcher unexpectedly stole geometry control"
+        )
+
+        let controlKey = MachinenTerminalView.controlPreferenceKey(for: session.id)
+        UserDefaults.standard.set(true, forKey: controlKey)
+        defer { UserDefaults.standard.removeObject(forKey: controlKey) }
+        let restoringTerminal = MachinenTerminalView(
+            session: session,
+            terminalBackend: harness.backend,
+            telemetryProvider: { completion in completion(nil) }
+        )
+        restoringTerminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:239:59:11:99:\(session.viewerClientID):0:149:42"
+        )
+        try expect(
+            harness.takenControlSessionIDs == [session.id],
+            "the prior controller did not restore control after a restart"
         )
 
         harness.setAvailableSessions([
@@ -1717,106 +2458,305 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func nativeWorkspaceRegistryRestoresLostDesktopState() throws {
+    private static func registeredTargetDiscoveryRequiresExplicitOpenAndAttach() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         harness.setNativeWorkspaces([
             NativeWorkspaceRecord(
-                id: "ws_recovered",
-                name: "recovered",
-                rootDirectory: harness.temporaryDirectoryPath,
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "ws_recovered", name: "recovered",
+                rootDirectory: harness.temporaryDirectoryPath, createdAtMs: 1, updatedAtMs: 2
             ),
         ])
         harness.setAvailableSessions([
             AvailableTerminalSession(
-                id: "term_recovered",
-                name: "agent",
-                state: "running",
-                workspaceId: "ws_recovered",
-                workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "term_recovered", name: "agent", state: "running",
+                workspaceId: "ws_recovered", workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
+                createdAtMs: 1, updatedAtMs: 2
             ),
         ])
 
-        let emptyDesktopState = harness.loadStoredState()
-        try expect(
-            emptyDesktopState.workspaces.isEmpty && emptyDesktopState.sessions.isEmpty,
-            "a missing Desktop manifest recreated prototype workspaces instead of starting recovery"
-        )
-        let deck = harness.makeDeck(state: emptyDesktopState)
-        let snapshot = try harness.snapshot(of: deck)
-        try expect(
-            snapshot.workspaces.map(\.id) == ["ws_recovered"]
-                && snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
-            "the native registry did not restore a workspace after Desktop state was lost"
-        )
-        let status = try harness.effectiveStatusWidgets(of: deck)
-        try expect(
-            status.first(where: { $0.id == "machinen.availableSessions" })?.value == "1",
-            "the restored workspace did not discover its explicitly associated session"
-        )
-        deck.toggleAvailableSessions()
-        try expect(
-            try harness.availableSessions(in: deck).items.map(\.session.id) == ["term_recovered"],
-            "the restored workspace's session was not available for attachment"
-        )
+        let deck = harness.makeDeck(state: harness.loadStoredState())
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "target discovery opened a workspace or attached a session")
+        let discovery = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let local = (discovery?["targets"] as? [JSONObject])?.first
+        try expect((local?["workspaces"] as? [JSONObject])?.map { $0["id"] as? String } == ["ws_recovered"],
+                   "registered local discovery did not report native workspaces")
+        try expect((try harness.effectiveStatusWidgets(of: deck)).contains {
+            $0.id == "machinen.targetSessions" && $0.value == "1"
+        }, "the status bar did not expose the registered target session browser")
+
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_recovered"],
+                   "opening a discovered workspace was not an explicit browser action")
+        deck.toggleTargetSessions()
+        let sessionsBrowser = try harness.targetSessions(in: deck)
+        try harness.pressReturn(on: sessionsBrowser)
+        try harness.pressReturn(on: sessionsBrowser)
+        try harness.pressDown(on: sessionsBrowser)
+        try harness.pressDown(on: sessionsBrowser)
+        try harness.pressReturn(on: sessionsBrowser)
+        try harness.pressReturn(on: sessionsBrowser)
+        try expect((try harness.snapshot(of: deck)).terminals.map(\.id).contains("term_recovered"),
+                   "attaching a discovered session was not an explicit action")
+        deck.toggleTargetSessions(selecting: "term_recovered")
+        let attachedBrowser = try harness.targetSessions(in: deck)
+        try expect(attachedBrowser.items.first(where: {
+            $0.sessionID == "term_recovered"
+        })?.sessionAction == .detach,
+        "the shared workspace tree did not show the attached session state")
+        try harness.pressReturn(on: attachedBrowser)
+        try harness.pressReturn(on: attachedBrowser)
+        try expect((try harness.snapshot(of: deck)).terminals.isEmpty,
+                   "detaching from the shared workspace tree left the viewer attached")
+        deck.restoreUndoToastTerminal()
+
+        harness.setSessionDiscovery(.success([]), for: "ssh:mini")
+        harness.setWorkspaceDiscovery(.success([]), for: "ssh:mini")
+        let target = try deck.performAPIOperation("target.register", params: ["host": "mini"]) as? JSONObject
+        try expect(target?["host"] as? String == "mini", "SSH target registration failed")
+        let persisted = harness.loadStoredState().targetMachines
+        try expect(persisted.count == 1 && persisted[0].sshHost == "mini" && !persisted[0].id.isEmpty,
+                   "registered SSH target was not persisted with a stable identity")
 
         let migrationHarness = try Harness()
         defer { migrationHarness.cleanUp() }
-        migrationHarness.setNativeWorkspaces([
+        try migrationHarness.storeManifest(
+            version: 10,
+            workspaces: [WorkspaceRecord(
+                id: "ws_legacy_remote", name: "legacy remote",
+                workingDirectory: "/project", sshHost: "mini"
+            )],
+            sessions: []
+        )
+        let migrated = migrationHarness.loadStoredState()
+        try expect(migrated.targetMachines.map(\.sshHost) == ["mini"],
+                   "legacy SSH workspace locations were not seeded as target profiles")
+        let migratedDeck = migrationHarness.makeDeck(state: migrated)
+        _ = try migratedDeck.performAPIOperation(
+            "target.remove",
+            params: ["targetId": migrated.targetMachines[0].id]
+        )
+        try expect(migrationHarness.loadStoredState().targetMachines.isEmpty,
+                   "a removed migrated target returned from SSH location history")
+
+        try registeredTargetStatesAndStaleDiscoveryAreDistinct()
+        try removingTargetInvalidatesPendingDiscovery()
+        try addingSharedWorkspaceDoesNotOpenIt()
+        try closingOneTargetWorkspaceSupportsUndo()
+    }
+
+    private static func addingSharedWorkspaceDoesNotOpenIt() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(state: harness.loadStoredState())
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+
+        var palette = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: palette)
+        palette = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: palette)
+        palette = try harness.commandPalette(in: deck)
+        try harness.type("shared home", into: palette)
+        try harness.pressReturn(on: palette)
+
+        guard let saved = harness.savedWorkspaces.last else {
+            throw InteractionTestFailure("Add Workspace did not save a native workspace")
+        }
+        try expect(saved.name == "shared home" && saved.sessions.isEmpty,
+                   "Add Workspace did not register an empty shared workspace")
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "registering a shared workspace opened it in the scene")
+    }
+
+    private static func closingOneTargetWorkspaceSupportsUndo() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let target = TargetMachine(id: "target_close_mini", sshHost: "mini")
+        let machineID = "ssh:mini"
+        harness.setWorkspaceDiscovery(.success([
             NativeWorkspaceRecord(
-                id: "ws_canonical",
-                name: "project",
-                rootDirectory: migrationHarness.temporaryDirectoryPath,
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "ws_close_one", name: "one",
+                rootDirectory: harness.temporaryDirectoryPath + "/one",
+                createdAtMs: 1, updatedAtMs: 2
             ),
             NativeWorkspaceRecord(
-                id: "ws_duplicate",
-                name: "project",
-                rootDirectory: migrationHarness.temporaryDirectoryPath,
-                createdAtMs: 2,
-                updatedAtMs: 3
+                id: "ws_keep_two", name: "two",
+                rootDirectory: harness.temporaryDirectoryPath + "/two",
+                createdAtMs: 1, updatedAtMs: 2
             ),
-        ])
-        let legacyWorkspace = WorkspaceRecord(
-            id: "ws_legacy",
-            name: "project",
-            workingDirectory: migrationHarness.temporaryDirectoryPath
+        ]), for: machineID)
+        harness.setSessionDiscovery(.success([
+            AvailableTerminalSession(
+                id: "term_close_one", name: "agent", state: "running",
+                workspaceId: "ws_close_one", workingDirectory: harness.temporaryDirectoryPath,
+                createdAtMs: 1, updatedAtMs: 2
+            ),
+        ]), for: machineID)
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [], sessions: [], targetMachines: [target]
+        ))
+
+        deck.toggleTargetSessions()
+        var browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_close_one"],
+                   "the workspace needed for the close-undo proof was not opened")
+
+        deck.toggleTargetSessions()
+        browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        let closed = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let closedTarget = (closed?["targets"] as? [JSONObject])?.first {
+            ($0["target"] as? JSONObject)?["id"] as? String == target.id
+        }
+        try expect((closedTarget?["workspaces"] as? [JSONObject])?.compactMap {
+            $0["id"] as? String
+        } == ["ws_keep_two"], "closing one workspace removed every target workspace")
+        let listed = try deck.performAPIOperation("target.list", params: [:]) as? JSONObject
+        try expect((listed?["targets"] as? [JSONObject])?.contains {
+            $0["id"] as? String == target.id
+        } == true, "closing one workspace removed its registered target")
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "closing a target workspace left its scene workspace open")
+        try expect(deck.canRestoreUndoToast, "closing a workspace did not offer undo")
+
+        deck.restoreUndoToastTerminal()
+        let restored = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let restoredTarget = (restored?["targets"] as? [JSONObject])?.first {
+            ($0["target"] as? JSONObject)?["id"] as? String == target.id
+        }
+        try expect(Set((restoredTarget?["workspaces"] as? [JSONObject])?.compactMap {
+            $0["id"] as? String
+        } ?? []) == Set(["ws_close_one", "ws_keep_two"]),
+        "undo did not restore the individually closed workspace")
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_close_one"],
+                   "undo did not restore the scene workspace")
+        try expect(harness.deletedWorkspaceIDs.isEmpty,
+                   "undo ran after the native workspace had already been deleted")
+
+        deck.toggleTargetSessions()
+        browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        deck.terminateLastClosedTerminalNow()
+        try expect(harness.deletedWorkspaceIDs == ["ws_close_one"],
+                   "committing one close deleted the wrong native workspace")
+    }
+
+    private static func registeredTargetStatesAndStaleDiscoveryAreDistinct() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let target = TargetMachine(id: "target_mini", sshHost: "mini")
+        let machineID = "ssh:mini"
+        let finished = AvailableTerminalSession(
+            id: "term_finished", name: "finished", state: "exited",
+            workspaceId: nil, workingDirectory: "/project", createdAtMs: 1, updatedAtMs: 1
         )
-        let legacySession = TerminalSession(
-            id: "term_legacy",
-            label: "ls",
-            workspaceID: legacyWorkspace.id,
-            workspace: legacyWorkspace.name,
-            name: "shell",
-            launch: .loginShell,
-            workingDirectory: migrationHarness.temporaryDirectoryPath,
-            state: .running
+        harness.setSessionDiscovery(.success([finished]), for: machineID)
+        harness.setWorkspaceDiscovery(.success([]), for: machineID)
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [], sessions: [], targetMachines: [target]
+        ))
+
+        func targetResult(_ operation: String) throws -> JSONObject? {
+            let result = try deck.performAPIOperation(operation, params: [:]) as? JSONObject
+            return (result?["targets"] as? [JSONObject])?.first {
+                let candidate = ($0["target"] as? JSONObject) ?? $0
+                return candidate["id"] as? String == target.id
+            }
+        }
+
+        try expect(try targetResult("target.list")?["state"] as? String == "inactive",
+                   "a target with only exited sessions was reported online")
+
+        let active = AvailableTerminalSession(
+            id: "term_active", name: "agent", state: "running",
+            workspaceId: nil, workingDirectory: "/project", createdAtMs: 2, updatedAtMs: 2
         )
-        let migratedDeck = migrationHarness.makeDeck(
-            workspaces: [(legacyWorkspace, [legacySession])]
+        harness.setSessionDiscovery(.success([active]), for: machineID)
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect(try targetResult("target.list")?["state"] as? String == "online",
+                   "an active registered target was not reported online")
+
+        let workspaceCalls = harness.workspaceDiscoveryCallCount(for: machineID)
+        harness.setSessionDiscovery(
+            .failure(InteractionTestFailure("SSH is offline")),
+            for: machineID
         )
-        let migratedSnapshot = try migrationHarness.snapshot(of: migratedDeck)
-        try expect(
-            migratedSnapshot.workspaces.map(\.id) == ["ws_canonical"]
-                && migratedSnapshot.tiles.map(\.workspaceId) == ["ws_canonical"],
-            "a native workspace with the same machine and root created a duplicate workspace"
+        try harness.pressDown(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        let stale = try targetResult("target.sessions")
+        try expect(stale?["state"] as? String == "unreachable",
+                   "a failed target poll was reported inactive")
+        try expect((stale?["sessions"] as? [JSONObject])?.map { $0["id"] as? String }
+            == ["term_active"], "unreachable discovery did not retain its stale active sessions")
+        try expect(harness.workspaceDiscoveryCallCount(for: machineID) == workspaceCalls,
+                   "a failed session poll performed a second SSH workspace request")
+    }
+
+    private static func removingTargetInvalidatesPendingDiscovery() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let target = TargetMachine(id: "target_pending", sshHost: "pending")
+        let machineID = "ssh:pending"
+        harness.deferSessionDiscovery(for: machineID)
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [], sessions: [], targetMachines: [target]
+        ))
+
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect(harness.sessionDiscoveryCallCount(for: machineID) == 1,
+                   "an in-flight target poll allowed overlapping SSH requests")
+
+        _ = try deck.performAPIOperation(
+            "target.remove",
+            params: ["targetId": target.id]
         )
-        let migratedState = migrationHarness.loadStoredState()
-        try expect(
-            migratedState.workspaces.map(\.id) == ["ws_canonical"]
-                && migratedState.sessions.map(\.workspaceID) == ["ws_canonical"],
-            "the canonical native workspace ID was not persisted"
+        harness.completeSessionDiscovery(
+            for: machineID,
+            with: .success([AvailableTerminalSession(
+                id: "term_late", name: "late", state: "running",
+                workspaceId: nil, workingDirectory: "/project", createdAtMs: 1, updatedAtMs: 1
+            )])
         )
-        try expect(
-            migrationHarness.savedWorkspaceIDs.contains("ws_canonical")
-                && migrationHarness.deletedWorkspaceIDs.contains("ws_legacy"),
-            "the native session store did not replace the superseded workspace ID"
-        )
+        let listed = try deck.performAPIOperation("target.list", params: [:]) as? JSONObject
+        try expect((listed?["targets"] as? [JSONObject])?.compactMap { $0["id"] as? String }
+            == ["local"], "a late discovery result resurrected a removed target")
+        try expect(harness.workspaceDiscoveryCallCount(for: machineID) == 0,
+                   "a removed target continued into workspace discovery")
+        try expect((try harness.effectiveStatusWidgets(of: deck)).first {
+            $0.id == "machinen.targetSessions"
+        }?.value == "0", "a removed target remained in the status-bar session count")
     }
 
     private static func graphicalStatusWidgetsRender() throws {
@@ -1901,7 +2841,10 @@ enum InteractionTestRunner {
             "hovering a graphical instrument did not provide popover text"
         )
         try expect(
-            view.hoverText(at: NSPoint(x: 100, y: 20)) == "/projects/workspace",
+            view.hoverText(at: NSPoint(
+                x: view.workspaceFrameForTesting.midX,
+                y: view.workspaceFrameForTesting.midY
+            )) == "/projects/workspace",
             "hovering the workspace title did not reveal its path"
         )
         let popover = MachinenStatusPopoverView()
@@ -2296,6 +3239,7 @@ enum InteractionTestRunner {
             sessionStore: TerminalSessionStore(
                 manifestURL: directory.appendingPathComponent("terminals.json")
             ),
+            interactionIntentEngine: InteractionIntentEngine(),
             sessionBackend: ImmediateViewerBackend(workingDirectory: directory.path)
         )
         let window = NSWindow(
@@ -2321,9 +3265,20 @@ enum InteractionTestRunner {
             try expect(session.state == .running, "Ghostty did not attach its test viewer")
         }
 
+        func inlineConfirmation(in view: NSView) -> ActionConfirmationView? {
+            if let confirmation = view as? ActionConfirmationView { return confirmation }
+            return view.subviews.lazy.compactMap(inlineConfirmation).first
+        }
+
         try waitForRunningViewer()
         for _ in 0..<8 {
             deck.handleCommandW()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.55))
+            guard let confirmation = inlineConfirmation(in: deck) else {
+                throw InteractionTestFailure("the renderer test did not show its in-tile confirmation")
+            }
+            _ = confirmation.performShortcut(.enter)
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
             try expect(deck.canReopenClosedTerminal, "the renderer test did not disconnect its viewer")
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()
@@ -2417,6 +3372,42 @@ enum InteractionTestRunner {
         preview.scrollWheel(with: event)
 
         try expect(resolutions == 1, "an overlapping preview swallowed terminal scrolling")
+    }
+
+    private static func performanceStatisticsCalculatePercentiles() throws {
+        let values = [10.0, 20.0, 30.0, 40.0]
+        try expect(
+            PerformanceStatistics.percentile(0.50, values: values) == 30
+                && PerformanceStatistics.percentile(0.95, values: values) == 40
+                && PerformanceStatistics.percentile(0.50, values: []) == 0,
+            "performance percentiles did not produce stable benchmark values"
+        )
+    }
+
+    private static func modifiedWheelEmulatesThreeFingerSwipe() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: 1)
+        try expect(
+            try harness.uiLevel(of: deck) == "workspace",
+            "command-shift-wheel did not emulate a three-finger down swipe"
+        )
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: 1)
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal",
+            "command-shift-wheel did not enter the selected terminal"
+        )
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: -1)
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: -1)
+        try expect(
+            try harness.uiLevel(of: deck) == "overview",
+            "command-shift-wheel did not emulate three-finger up swipes"
+        )
     }
 
     private static func pointerTilesSeparateClickFocusAndDrag() throws {
@@ -2653,6 +3644,12 @@ enum InteractionTestRunner {
         guard let cluster = clusters.first(where: { $0.workspaceID == "ws_alpha" }) else {
             throw InteractionTestFailure("the overview did not create the alpha workspace")
         }
+        deck.toggleMapEditOverlay()
+        deck.layoutSubtreeIfNeeded()
+        try expect(
+            deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘E did not enter edit mode before the workspace click"
+        )
         let workspacePoint = NSPoint(x: cluster.bounds.midX, y: cluster.bounds.midY)
         try expect(
             !cluster.sessions.contains(where: { $0.frame.contains(workspacePoint) }),
@@ -2689,6 +3686,10 @@ enum InteractionTestRunner {
             "clicking a workspace background focused one of its terminals"
         )
         try expect(
+            !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "clicking a workspace tile did not leave edit mode"
+        )
+        try expect(
             try harness.focusedTileID(of: deck) == nil,
             "clicking a workspace background selected a particular terminal"
         )
@@ -2709,6 +3710,12 @@ enum InteractionTestRunner {
         window.makeFirstResponder(deck)
         deck.layoutSubtreeIfNeeded()
         try expect(try harness.uiLevel(of: deck) == "overview", "the test did not start in overview")
+        deck.toggleMapEditOverlay()
+        deck.layoutSubtreeIfNeeded()
+        try expect(
+            deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘E did not enter edit mode before the terminal click"
+        )
 
         func tiles(in view: NSView) -> [TerminalTileView] {
             view.subviews.flatMap { subview in
@@ -2722,7 +3729,10 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("the overview did not render both terminal previews")
         }
         let typingEvent = try harness.keyEvent(characters: "a", keyCode: 0)
-        try expect(window.firstResponder === deck, "select mode did not keep the deck as first responder")
+        try expect(
+            window.firstResponder is MapEditOverlayView,
+            "edit mode did not keep its overlay as first responder"
+        )
         try expect(
             !previewTerminal.performKeyEquivalent(with: typingEvent),
             "select mode routed typing into a terminal preview"
@@ -2763,6 +3773,10 @@ enum InteractionTestRunner {
         try expect(
             try harness.focusedTileID(of: deck) == target.session.tileID,
             "clicking a terminal did not focus its PTY before camera motion"
+        )
+        try expect(
+            !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "clicking a terminal tile did not leave edit mode"
         )
         try expect(
             (window.firstResponder as? MachinenTerminalView)?.session.id == target.session.id,
@@ -2899,17 +3913,65 @@ enum InteractionTestRunner {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("solo", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
 
         deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let confirmation = try harness.inlineConfirmation(in: deck)
         var snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.tiles.count == 1
+                && confirmation.superview is TerminalTileView
+                && (try harness.uiLevel(of: deck)) == "terminal"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘W left the terminal or entered edit mode before confirmation"
+        )
+        try harness.pressEscape(on: confirmation)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_solo_0",
+            "cancelling the in-tile confirmation did not restore the terminal"
+        )
+
+        try harness.confirmCommandW(in: deck)
+        snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 1, "⌘W closed a singleton workspace")
-        try expect(snapshot.tiles.isEmpty, "⌘W did not disconnect the singleton terminal")
+        try expect(snapshot.tiles.isEmpty, "confirmed ⌘W did not disconnect the singleton terminal")
         try expect(deck.canReopenClosedTerminal, "the singleton session was not reconnectable")
 
         deck.handleCommandW()
         snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 1, "a second ⌘W closed the workspace")
         try expect(!deck.canReopenClosedTerminal, "a second ⌘W did not kill the session")
+
+        let overviewDeck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        window.contentView = overviewDeck
+        window.makeFirstResponder(overviewDeck)
+        overviewDeck.layoutSubtreeIfNeeded()
+        overviewDeck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let workspaceConfirmation = try harness.inlineConfirmation(in: overviewDeck)
+        try expect(
+            workspaceConfirmation.superview is WorkspaceClusterView
+                && (try harness.snapshot(of: overviewDeck)).workspaces.count == 2
+                && (try harness.uiLevel(of: overviewDeck)) == "overview"
+                && !overviewDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘W changed the workspace or entered edit mode before confirmation"
+        )
+        try harness.pressEscape(on: workspaceConfirmation)
     }
 
     private static func disconnectedTerminalsCanReconnectOrBeKilled() throws {
@@ -2932,6 +3994,37 @@ enum InteractionTestRunner {
         deck.zoomInOneLevel()
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
         deck.handleCommandW()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.55))
+        let workspaceConfirmation = try harness.inlineConfirmation(in: deck)
+        try expect(
+            workspaceConfirmation.superview is TerminalTileView
+                && (try harness.uiLevel(of: deck)) == "workspace"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "workspace ⌘W did not stay local to the selected terminal tile"
+        )
+        try harness.pressEscape(on: workspaceConfirmation)
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.30))
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        try expect(try harness.uiLevel(of: deck) == "terminal",
+                   "the close proof did not focus its terminal")
+        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let confirmation = try harness.inlineConfirmation(in: deck)
+        try expect(
+            try harness.snapshot(of: deck).tiles.count == 4
+                && confirmation.superview is TerminalTileView
+                && (try harness.uiLevel(of: deck)) == "terminal"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘W changed the terminal or entered edit mode before confirmation"
+        )
+        try harness.pressReturn(on: confirmation)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(
+            try harness.uiLevel(of: deck) == "workspace"
+                && (try harness.focusedTileID(of: deck)) == nil,
+            "closing a terminal focused the next terminal"
+        )
 
         var snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.tiles.count == 3, "⌘W did not disconnect the selected terminal tile")
@@ -2947,10 +4040,7 @@ enum InteractionTestRunner {
             "the disconnected session did not appear in the status bar"
         )
 
-        deck.toggleCommandPalette()
-        let commandPalette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: commandPalette)
-        try harness.pressReturn(on: commandPalette)
+        deck.toggleAvailableSessions()
         let sessions = try harness.availableSessions(in: deck)
         try expect(
             sessions.items.count == 4
@@ -2983,7 +4073,8 @@ enum InteractionTestRunner {
         )
         try expect(!deck.canReopenClosedTerminal, "reconnect left the session disconnected")
 
-        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try harness.confirmCommandW(in: deck)
         try expect(deck.canRestoreUndoToast, "the toast did not enable its reconnect shortcut")
         deck.restoreUndoToastTerminal()
         try expect(
@@ -2991,12 +4082,14 @@ enum InteractionTestRunner {
             "the toast's ⌘Z shortcut did not reconnect its session"
         )
 
-        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try harness.confirmCommandW(in: deck)
         deck.handleCommandW()
         try expect(!deck.canReopenClosedTerminal, "a second ⌘W did not kill the session")
         try expect(try harness.snapshot(of: deck).tiles.count == 3, "killing restored a tile")
 
-        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try harness.confirmCommandW(in: deck)
         deck.toggleAvailableSessions()
         let killPanel = try harness.availableSessions(in: deck)
         deck.handleCommandW()
@@ -3231,6 +4324,14 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
         completion(.success(()))
     }
     func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool { true }
+    func resizeAsync(
+        _ session: TerminalSession,
+        columns: UInt16,
+        rows: UInt16,
+        completion: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        completion(true)
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -3239,6 +4340,10 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
 
 @MainActor
 private final class DeferredViewerBackend: TerminalSessionBackend {
+    typealias SessionListCompletion = @MainActor @Sendable (
+        Result<[AvailableTerminalSession], Error>
+    ) -> Void
+
     private var viewerCompletion: (
         @MainActor @Sendable (Result<TerminalViewerLaunch, Error>) -> Void
     )?
@@ -3263,6 +4368,12 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 
     var availableSessions: [AvailableTerminalSession] = []
     var nativeWorkspaces: [NativeWorkspaceRecord] = []
+    var sessionResultsByMachine: [String: Result<[AvailableTerminalSession], Error>] = [:]
+    var workspaceResultsByMachine: [String: Result<[NativeWorkspaceRecord], Error>] = [:]
+    var deferredSessionMachines: Set<String> = []
+    var pendingSessionLists: [String: [SessionListCompletion]] = [:]
+    var sessionListCallsByMachine: [String: Int] = [:]
+    var workspaceListCallsByMachine: [String: Int] = [:]
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
     var takenControlOf: [String] = []
@@ -3270,16 +4381,33 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 
     func listSessions(
         at location: WorkspaceLocation,
-        completion: @escaping @MainActor @Sendable (Result<[AvailableTerminalSession], Error>) -> Void
+        completion: @escaping SessionListCompletion
     ) {
-        completion(.success(availableSessions))
+        let machineID = location.machineID
+        sessionListCallsByMachine[machineID, default: 0] += 1
+        if deferredSessionMachines.contains(machineID) {
+            pendingSessionLists[machineID, default: []].append(completion)
+            return
+        }
+        completion(sessionResultsByMachine[machineID] ?? .success(availableSessions))
     }
 
     func listWorkspaces(
         at location: WorkspaceLocation,
         completion: @escaping @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
     ) {
-        completion(.success(nativeWorkspaces))
+        let machineID = location.machineID
+        workspaceListCallsByMachine[machineID, default: 0] += 1
+        completion(workspaceResultsByMachine[machineID] ?? .success(nativeWorkspaces))
+    }
+
+    func completeSessionLists(
+        for machineID: String,
+        with result: Result<[AvailableTerminalSession], Error>
+    ) {
+        deferredSessionMachines.remove(machineID)
+        let completions = pendingSessionLists.removeValue(forKey: machineID) ?? []
+        for completion in completions { completion(result) }
     }
 
     func saveWorkspace(
@@ -3313,6 +4441,14 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
         resizedSessions.append((session.id, columns, rows))
         return true
     }
+    func resizeAsync(
+        _ session: TerminalSession,
+        columns: UInt16,
+        rows: UInt16,
+        completion: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        completion(resize(session, columns: columns, rows: rows))
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -3323,6 +4459,7 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 private final class Harness {
     private let temporaryDirectory: URL
     private let terminalBackend = DeferredViewerBackend()
+    private let interactionIntentEngine = InteractionIntentEngine()
     var temporaryDirectoryPath: String { temporaryDirectory.path }
     var backend: DeferredViewerBackend { terminalBackend }
 
@@ -3358,6 +4495,7 @@ private final class Harness {
         TerminalDeckView(
             state: state,
             sessionStore: sessionStore(),
+            interactionIntentEngine: interactionIntentEngine,
             sessionBackend: terminalBackend
         )
     }
@@ -3366,11 +4504,47 @@ private final class Harness {
         terminalBackend.availableSessions = sessions
     }
 
+    func setSessionDiscovery(
+        _ result: Result<[AvailableTerminalSession], Error>,
+        for machineID: String
+    ) {
+        terminalBackend.sessionResultsByMachine[machineID] = result
+    }
+
+    func setWorkspaceDiscovery(
+        _ result: Result<[NativeWorkspaceRecord], Error>,
+        for machineID: String
+    ) {
+        terminalBackend.workspaceResultsByMachine[machineID] = result
+    }
+
+    func deferSessionDiscovery(for machineID: String) {
+        terminalBackend.deferredSessionMachines.insert(machineID)
+    }
+
+    func completeSessionDiscovery(
+        for machineID: String,
+        with result: Result<[AvailableTerminalSession], Error>
+    ) {
+        terminalBackend.completeSessionLists(for: machineID, with: result)
+    }
+
+    func sessionDiscoveryCallCount(for machineID: String) -> Int {
+        terminalBackend.sessionListCallsByMachine[machineID] ?? 0
+    }
+
+    func workspaceDiscoveryCallCount(for machineID: String) -> Int {
+        terminalBackend.workspaceListCallsByMachine[machineID] ?? 0
+    }
+
     var takenControlSessionIDs: [String] { terminalBackend.takenControlOf }
     var resizedSessionRequests: [(id: String, columns: UInt16, rows: UInt16)] {
         terminalBackend.resizedSessions
     }
     var savedWorkspaceIDs: [String] { terminalBackend.savedWorkspaces.map(\.id) }
+    var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] {
+        terminalBackend.savedWorkspaces
+    }
     var deletedWorkspaceIDs: [String] { terminalBackend.deletedWorkspaces.map(\.id) }
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
@@ -3379,6 +4553,10 @@ private final class Harness {
 
     func loadStoredState() -> MachinenStoredState {
         sessionStore().load()
+    }
+
+    func storeState(_ state: MachinenStoredState) {
+        sessionStore().save(state)
     }
 
     func storeManifest(
@@ -3432,6 +4610,40 @@ private final class Harness {
         return view.subviews.lazy.compactMap(terminalTile).first
     }
 
+    func click(_ view: NSView, in window: NSWindow) throws {
+        let point = view.convert(
+            NSPoint(x: view.bounds.midX, y: view.bounds.midY),
+            to: nil
+        )
+        guard let down = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: point,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        ),
+            let up = NSEvent.mouseEvent(
+                with: .leftMouseUp,
+                location: point,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            )
+        else {
+            throw InteractionTestFailure("could not create a tile click event")
+        }
+        view.mouseDown(with: down)
+        view.mouseUp(with: up)
+    }
+
     func snapshot(of deck: TerminalDeckView) throws -> InteractionSnapshot {
         let result = try deck.performAPIOperation("system.snapshot", params: [:])
         let data = try JSONSerialization.data(withJSONObject: result)
@@ -3450,6 +4662,22 @@ private final class Harness {
             throw InteractionTestFailure("ui.get returned an invalid response")
         }
         return level
+    }
+
+    func selectedWorkspaceID(of deck: TerminalDeckView) throws -> String? {
+        let result = try deck.performAPIOperation("ui.get", params: [:])
+        guard let object = result as? [String: Any] else {
+            throw InteractionTestFailure("ui.get returned an invalid response")
+        }
+        return object["selectedWorkspaceId"] as? String
+    }
+
+    func selectedTileID(of deck: TerminalDeckView) throws -> String? {
+        let result = try deck.performAPIOperation("ui.get", params: [:])
+        guard let object = result as? [String: Any] else {
+            throw InteractionTestFailure("ui.get returned an invalid response")
+        }
+        return object["selectedTileId"] as? String
     }
 
     func focusedTileID(of deck: TerminalDeckView) throws -> String? {
@@ -3475,6 +4703,24 @@ private final class Harness {
         return palette
     }
 
+    func inlineConfirmation(in deck: TerminalDeckView) throws -> ActionConfirmationView {
+        func find(in view: NSView) -> ActionConfirmationView? {
+            if let confirmation = view as? ActionConfirmationView { return confirmation }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        guard let confirmation = find(in: deck) else {
+            throw InteractionTestFailure("the selected tile did not show its confirmation")
+        }
+        return confirmation
+    }
+
+    func confirmCommandW(in deck: TerminalDeckView) throws {
+        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try pressReturn(on: inlineConfirmation(in: deck))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+    }
+
     func hasCommandPalette(in deck: TerminalDeckView) -> Bool {
         deck.subviews.contains { $0 is CommandPaletteView }
     }
@@ -3484,6 +4730,13 @@ private final class Harness {
             throw InteractionTestFailure("the available sessions picker did not open")
         }
         return manager
+    }
+
+    func targetSessions(in deck: TerminalDeckView) throws -> TargetSessionsView {
+        guard let browser = deck.subviews.compactMap({ $0 as? TargetSessionsView }).last else {
+            throw InteractionTestFailure("the registered target browser did not open")
+        }
+        return browser
     }
 
     func undoToast(in deck: TerminalDeckView) -> UndoTerminalCloseView? {

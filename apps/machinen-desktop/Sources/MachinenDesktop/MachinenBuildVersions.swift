@@ -1,7 +1,7 @@
 import Foundation
 
 enum MachinenBuildVersions {
-    static let sessionHandler = "0.5.7"
+    static let sessionHandler = "0.5.9"
 
     static var desktop: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String

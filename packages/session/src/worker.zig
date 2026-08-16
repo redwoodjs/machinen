@@ -38,7 +38,8 @@ const max_viewer_clients = max_attached_clients;
 const max_clients = max_viewer_clients + 4;
 const max_frame_payload = 32 * 1024;
 const output_batch_bytes = 256 * 1024;
-const output_batch_delay_ms = 16;
+// Keep interactive echo below one display frame while still coalescing output fragments.
+const output_batch_delay_ms = 4;
 const durable_checkpoint_interval_ms = 60_000;
 const max_live_history_bytes = 16 * 1024 * 1024;
 const socket_directory_prefix = "/tmp/machinen-session-";
@@ -266,6 +267,7 @@ pub const AttachOptions = struct {
     read_only: bool = false,
     latest_screen: bool = false,
     geometry_events: bool = false,
+    take_on_input: bool = false,
     client_id: ?u64 = null,
     client_name: ?[]const u8 = null,
 };
@@ -573,6 +575,29 @@ pub fn resizeSession(
     }
 }
 
+fn shouldTakeControlOnInput(
+    options: AttachOptions,
+    uses_leases: bool,
+    takeover_pending: bool,
+) bool {
+    std.debug.assert(options.protocol > 0);
+    return options.take_on_input and !options.read_only and uses_leases and !takeover_pending;
+}
+
+fn shouldForceTakeoverResize(
+    writer_granted: bool,
+    resize_granted: bool,
+    pending_input_length: u16,
+    takeover_resized: bool,
+    now_ms: i64,
+    deadline_ms: i64,
+) bool {
+    std.debug.assert(pending_input_length <= max_frame_payload);
+    std.debug.assert(now_ms >= 0 and deadline_ms >= 0);
+    return writer_granted and resize_granted and pending_input_length > 0 and
+        !takeover_resized and now_ms >= deadline_ms;
+}
+
 pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptions) !u8 {
     const path = try socketPath(allocator, id);
     defer allocator.free(path);
@@ -630,25 +655,54 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
     var stdin_open = !options.read_only;
     var writer_granted = !uses_leases and !options.read_only;
     var resize_granted = !uses_leases and !options.read_only;
+    var takeover_pending = false;
+    var takeover_resize_deadline_ms: i64 = 0;
+    var pending_input: [max_frame_payload]u8 = undefined;
+    var pending_input_length: u16 = 0;
     var geometry: ?SessionGeometry = null;
     var last_heartbeat = monotonicMilliseconds();
     // Intentional client loop, bounded by socket close or worker exit.
     while (true) {
+        var takeover_resized = false;
         if (resize_pending != 0) {
             resize_pending = 0;
-            if (resize_granted) try sendCurrentSize(fd);
+            if (resize_granted) {
+                try sendCurrentSize(fd);
+                takeover_resized = takeover_pending;
+            }
             if (reports_geometry and geometry != null) {
                 try emitGeometryStatus(geometry.?, viewer_client_id, resize_granted);
             }
         }
         const now = monotonicMilliseconds();
+        if (shouldForceTakeoverResize(
+            writer_granted,
+            resize_granted,
+            pending_input_length,
+            takeover_resized,
+            now,
+            takeover_resize_deadline_ms,
+        )) {
+            try sendCurrentSize(fd);
+            takeover_resized = true;
+        }
+        if (writer_granted and takeover_resized and pending_input_length > 0) {
+            try writeFrame(fd, .input, pending_input[0..pending_input_length]);
+            pending_input_length = 0;
+            takeover_pending = false;
+            takeover_resize_deadline_ms = 0;
+        }
         if (uses_leases and now - last_heartbeat >= heartbeat_interval_ms) {
             try writeFrame(fd, .heartbeat, "");
             last_heartbeat = now;
         }
         var poll_fds = [_]c.struct_pollfd{
             .{ .fd = fd, .events = c.POLLIN, .revents = 0 },
-            .{ .fd = if (stdin_open) c.STDIN_FILENO else -1, .events = c.POLLIN, .revents = 0 },
+            .{
+                .fd = if (stdin_open and pending_input_length == 0) c.STDIN_FILENO else -1,
+                .events = c.POLLIN,
+                .revents = 0,
+            },
         };
         const polled = c.poll(&poll_fds, poll_fds.len, 100);
         if (polled < 0) continue;
@@ -673,7 +727,9 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
                     const previous_resize = resize_granted;
                     writer_granted = frame.payload[0] & LeaseFlag.writer != 0;
                     resize_granted = frame.payload[0] & LeaseFlag.resize != 0;
-                    if (resize_granted and !previous_resize) resize_pending = 1;
+                    if (resize_granted and !previous_resize and !takeover_pending) {
+                        resize_pending = 1;
+                    }
                     if (reports_geometry and geometry != null) {
                         try emitGeometryStatus(geometry.?, viewer_client_id, resize_granted);
                     }
@@ -698,12 +754,26 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
             return 0;
         }
         if (stdin_open and (poll_fds[1].revents & c.POLLIN) != 0) {
-            var input: [max_frame_payload]u8 = undefined;
-            const count = readRetry(c.STDIN_FILENO, &input);
+            const count = readRetry(c.STDIN_FILENO, &pending_input);
             if (count <= 0) {
                 stdin_open = false;
             } else {
-                if (writer_granted) try writeFrame(fd, .input, input[0..@intCast(count)]);
+                if (writer_granted) {
+                    try writeFrame(fd, .input, pending_input[0..@intCast(count)]);
+                } else {
+                    if (shouldTakeControlOnInput(options, uses_leases, takeover_pending)) {
+                        pending_input_length = @intCast(count);
+                        takeover_pending = true;
+                        try takeControl(
+                            allocator,
+                            id,
+                            options.protocol,
+                            options.after_sequence,
+                            viewer_client_id,
+                        );
+                        takeover_resize_deadline_ms = monotonicMilliseconds() + 100;
+                    }
+                }
             }
         }
         if (stdin_open and (poll_fds[1].revents & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) {
@@ -2295,11 +2365,11 @@ test "output batches flush at their byte or latency bound" {
     var batch: OutputBatch = .{};
     defer batch.deinit(allocator);
     try batch.append(allocator, "first", 100);
-    try batch.append(allocator, "second", 105);
-    try std.testing.expect(!batch.shouldFlush(115));
-    try std.testing.expectEqual(@as(c_int, 1), batch.pollTimeout(115));
-    try std.testing.expect(batch.shouldFlush(116));
-    try std.testing.expectEqual(@as(c_int, 0), batch.pollTimeout(116));
+    try batch.append(allocator, "second", 101);
+    try std.testing.expect(!batch.shouldFlush(103));
+    try std.testing.expectEqual(@as(c_int, 1), batch.pollTimeout(103));
+    try std.testing.expect(batch.shouldFlush(104));
+    try std.testing.expectEqual(@as(c_int, 0), batch.pollTimeout(104));
     batch.clear();
     try std.testing.expectEqual(@as(c_int, 1_000), batch.pollTimeout(200));
 }
@@ -2325,6 +2395,36 @@ test "framing preserves terminal bytes" {
     const frame = try readFrame(sockets[1], &payload);
     try std.testing.expectEqual(FrameType.output, frame.kind);
     try std.testing.expectEqualSlices(u8, "one\x00two", frame.payload);
+}
+
+test "take-on-input only requests control for an eligible watcher" {
+    const enabled: AttachOptions = .{
+        .protocol = protocol_version,
+        .take_on_input = true,
+    };
+    const read_only: AttachOptions = .{
+        .protocol = protocol_version,
+        .read_only = true,
+        .take_on_input = true,
+    };
+    try std.testing.expect(shouldTakeControlOnInput(enabled, true, false));
+    try std.testing.expect(!shouldTakeControlOnInput(
+        .{ .protocol = protocol_version },
+        true,
+        false,
+    ));
+    try std.testing.expect(!shouldTakeControlOnInput(read_only, true, false));
+    try std.testing.expect(!shouldTakeControlOnInput(enabled, false, false));
+    try std.testing.expect(!shouldTakeControlOnInput(enabled, true, true));
+}
+
+test "queued takeover input waits for resize or its redraw deadline" {
+    try std.testing.expect(!shouldForceTakeoverResize(true, true, 1, false, 99, 100));
+    try std.testing.expect(shouldForceTakeoverResize(true, true, 1, false, 100, 100));
+    try std.testing.expect(!shouldForceTakeoverResize(false, true, 1, false, 100, 100));
+    try std.testing.expect(!shouldForceTakeoverResize(true, false, 1, false, 100, 100));
+    try std.testing.expect(!shouldForceTakeoverResize(true, true, 0, false, 100, 100));
+    try std.testing.expect(!shouldForceTakeoverResize(true, true, 1, true, 100, 100));
 }
 
 test "attach request encodes latest-screen recovery in the reserved-compatible byte" {

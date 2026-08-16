@@ -42,12 +42,16 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     private var geometryLocalRows: UInt32?
     private var ownsResizeControl = true
     private var pinsAuthoritativeGeometry = false
+    private var restoresControlAfterAttach = false
+    private var requestedControlRestore = false
     private var lastSignaledGeometry: TerminalGeometry?
     private var geometryDisplayScale = NSSize(width: 1, height: 1)
     private var geometrySourceSize: NSSize?
     private var outputByteCount = 0
     private var renderRequestCount = 0
     private var lastGeometryDiagnostic: String?
+    private var backendResizeTask: DispatchWorkItem?
+    private var lastSubmittedGrid: (columns: UInt16, rows: UInt16)?
     var rendersAuthoritativeGrid: Bool {
         sessionGeometry != nil && (!ownsResizeControl || pinsAuthoritativeGeometry)
     }
@@ -66,6 +70,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         ) -> Void)? = nil
     ) {
         self.session = session
+        restoresControlAfterAttach = UserDefaults.standard.bool(
+            forKey: Self.controlPreferenceKey(for: session.id)
+        )
         let backend = terminalBackend ?? TerminalSessionBackendFactory.backend
         self.terminalBackend = backend
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
@@ -298,6 +305,10 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
                         )
                     }
                     self.activityDetector?.recordOutput()
+                    PerformanceMonitor.shared.recordTerminalOutput(
+                        tileID: self.session.tileID,
+                        byteCount: data.count
+                    )
                     self.onOutput?(data)
                 }
             }
@@ -329,6 +340,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     func detachViewer() {
+        setControlPreference(false)
         requestedStateAfterExit = .detached
         destroyViewer()
         setSessionState(.detached)
@@ -347,6 +359,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     func stopPersistentSession() {
+        setControlPreference(false)
         requestedStateAfterExit = .stopped
         terminalBackend.stop(session)
         destroyViewer()
@@ -354,6 +367,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     func removePersistentSession() {
+        setControlPreference(false)
         requestedStateAfterExit = .stopped
         destroyViewer()
         terminalBackend.remove(session)
@@ -422,6 +436,49 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         }
         lastSignaledGeometry = signal.geometry
         applySessionGeometry(signal.geometry, ownsResize: ownsResize)
+        updateControlPreference(ownsResize: ownsResize)
+    }
+
+    static func controlPreferenceKey(for sessionID: String) -> String {
+        "MachinenTerminalControl." + sessionID
+    }
+
+    private func setControlPreference(_ ownsControl: Bool) {
+        UserDefaults.standard.set(
+            ownsControl,
+            forKey: Self.controlPreferenceKey(for: session.id)
+        )
+        if !ownsControl { restoresControlAfterAttach = false }
+    }
+
+    private func updateControlPreference(ownsResize: Bool) {
+        if ownsResize {
+            requestedControlRestore = false
+            restoresControlAfterAttach = false
+            setControlPreference(true)
+            return
+        }
+        guard restoresControlAfterAttach else {
+            setControlPreference(false)
+            return
+        }
+        guard !requestedControlRestore else { return }
+        requestedControlRestore = true
+        InputRoutingLog.log("terminal[\(session.tileID)] restores prior control")
+        terminalBackend.takeControl(of: session) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                break
+            case let .failure(error):
+                self.requestedControlRestore = false
+                InputRoutingLog.log(
+                    "terminal[\(self.session.tileID)] could not restore control: "
+                        + error.localizedDescription
+                )
+                self.setControlPreference(false)
+            }
+        }
     }
 
     private func applySessionGeometry(
@@ -434,6 +491,10 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             ownsResizeControl = ownsResize
         } else if let ownerClientID = geometry.ownerClientId {
             ownsResizeControl = ownerClientID == session.viewerClientID
+        }
+        if !ownsResizeControl {
+            backendResizeTask?.cancel()
+            backendResizeTask = nil
         }
         updateGhosttyGeometry()
         if changed {
@@ -640,6 +701,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             viewportPixels
         }
         ghostty_surface_set_size(surface, pixels.width, pixels.height)
+        scheduleBackendResize(for: surface)
         let diagnostic = "bounds=\(Int(bounds.width))x\(Int(bounds.height)) "
             + "viewport=\(viewportPixels.width)x\(viewportPixels.height) "
             + "surface=\(pixels.width)x\(pixels.height) scale=\(scale) "
@@ -652,7 +714,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         updateGeometryTransform(
             sourcePixels: pixels,
             viewportPixels: viewportPixels,
-            enabled: false
+            enabled: usesAuthoritativeGrid && !ownsResizeControl
         )
         if let screen = window?.screen {
             ghostty_surface_set_display_id(
@@ -660,6 +722,53 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
                 screen.deviceDescription[.init("NSScreenNumber")] as? UInt32 ?? 0
             )
         }
+    }
+
+    private func scheduleBackendResize(for surface: ghostty_surface_t) {
+        guard ownsResizeControl else { return }
+        let size = ghostty_surface_size(surface)
+        guard size.columns > 0, size.rows > 0 else { return }
+        let grid = (columns: size.columns, rows: size.rows)
+        if let submitted = lastSubmittedGrid,
+           submitted.columns == grid.columns,
+           submitted.rows == grid.rows
+        {
+            return
+        }
+
+        backendResizeTask?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            guard let self, self.ownsResizeControl else { return }
+            self.lastSubmittedGrid = grid
+            self.terminalBackend.resizeAsync(
+                self.session,
+                columns: grid.columns,
+                rows: grid.rows
+            ) { [weak self] succeeded in
+                guard let self, !succeeded,
+                      self.lastSubmittedGrid?.columns == grid.columns,
+                      self.lastSubmittedGrid?.rows == grid.rows
+                else { return }
+                self.lastSubmittedGrid = nil
+            }
+        }
+        backendResizeTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: task)
+    }
+
+    static func aspectFitScale(
+        sourcePixels: (width: UInt32, height: UInt32),
+        viewportPixels: (width: UInt32, height: UInt32)
+    ) -> NSSize {
+        guard sourcePixels.width > 0, sourcePixels.height > 0,
+              viewportPixels.width > 0, viewportPixels.height > 0
+        else { return NSSize(width: 1, height: 1) }
+        let sourceAspect = CGFloat(sourcePixels.width) / CGFloat(sourcePixels.height)
+        let viewportAspect = CGFloat(viewportPixels.width) / CGFloat(viewportPixels.height)
+        if sourceAspect > viewportAspect {
+            return NSSize(width: 1, height: viewportAspect / sourceAspect)
+        }
+        return NSSize(width: sourceAspect / viewportAspect, height: 1)
     }
 
     private func updateGeometryTransform(
@@ -677,18 +786,13 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             layer?.setAffineTransform(.identity)
             return
         }
-        let sourceAspect = CGFloat(sourcePixels.width) / CGFloat(sourcePixels.height)
-        let viewportAspect = CGFloat(viewportPixels.width) / CGFloat(viewportPixels.height)
-        let scaleX: CGFloat
-        let scaleY: CGFloat
-        if sourceAspect > viewportAspect {
-            scaleX = 1
-            scaleY = viewportAspect / sourceAspect
-        } else {
-            scaleX = sourceAspect / viewportAspect
-            scaleY = 1
-        }
-        geometryDisplayScale = NSSize(width: scaleX, height: scaleY)
+        let displayScale = Self.aspectFitScale(
+            sourcePixels: sourcePixels,
+            viewportPixels: viewportPixels
+        )
+        let scaleX = displayScale.width
+        let scaleY = displayScale.height
+        geometryDisplayScale = displayScale
         let backingScale = window?.backingScaleFactor
             ?? NSScreen.main?.backingScaleFactor
             ?? 2
@@ -732,6 +836,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             super.keyDown(with: event)
             return
         }
+        PerformanceMonitor.shared.recordTerminalInput(tileID: session.tileID, event: event)
         guard let surface else { return }
         let translated = NSEvent.ModifierFlags.ghosttyTranslationModifiers(
             ghostty_surface_key_translation_mods(surface, event.modifierFlags.ghosttyModifiers)
@@ -817,16 +922,23 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         if let character = event.charactersIgnoringModifiers?.lowercased(),
            (character == "k" && (modifiers == [.command] || modifiers == [.command, .shift]))
                || (character == "o" && modifiers == [.command])
+               || (character == "e" && modifiers == [.command])
         {
             var ancestor = superview
             while let view = ancestor {
                 if let deck = view as? TerminalDeckView {
-                    if character == "k" {
-                        InputRoutingLog.log("terminal routes command-k directly to command palette")
+                    switch character {
+                    case "k":
+                        InputRoutingLog.log("terminal routes command-k to host browser")
                         deck.toggleCommandPalette()
-                    } else {
+                    case "o":
                         InputRoutingLog.log("terminal routes command-o directly to terminal menu")
                         deck.showTerminalContextMenu()
+                    case "e":
+                        InputRoutingLog.log("terminal routes command-e to map edit overlay")
+                        deck.toggleMapEditOverlay()
+                    default:
+                        break
                     }
                     return true
                 }
@@ -914,15 +1026,19 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard let surface,
-              geometryMousePosition(convert(event.locationInWindow, from: nil)) != nil
-        else { return }
+        guard let surface, sendMousePosition(event) else {
+            InputRoutingLog.log("terminal[\(session.tileID)] rejects scroll outside its viewport")
+            return
+        }
         var x = event.scrollingDeltaX
         var y = event.scrollingDeltaY
         if event.hasPreciseScrollingDeltas {
             x *= 2
             y *= 2
         }
+        InputRoutingLog.log(
+            "terminal[\(session.tileID)] scroll x=\(x) y=\(y) precise=\(event.hasPreciseScrollingDeltas)"
+        )
         ghostty_surface_mouse_scroll(surface, x, y, event.ghosttyScrollModifiers)
     }
 

@@ -9,14 +9,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var desktopServicesSupervisor: DesktopServicesSupervisor?
     private var commandChord: CommandChord?
     private var desktopShortcutMonitor: DesktopShortcutMonitor?
+    private var interactionIntentEngine: InteractionIntentEngine?
+    private var sceneRefreshTimer: Timer?
+    private var sceneRefreshInFlight = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         InputRoutingLog.start()
         InputRoutingLog.log("application did finish launching")
         installMainMenu()
 
-        let sessionStore = TerminalSessionStore()
-        let deck = TerminalDeckView(state: sessionStore.load(), sessionStore: sessionStore)
+        let configuration = MachinenConfiguration.load()
+        let serverAddress = MachinenServerAddress.resolve(savedSetting: configuration.server)
+        let sessionStore = TerminalSessionStore(serverAddress: serverAddress)
+        let interactionIntentEngine = InteractionIntentEngine(url: InteractionIntentEngine.defaultURL)
+        self.interactionIntentEngine = interactionIntentEngine
+        let deck = TerminalDeckView(
+            state: sessionStore.load(),
+            sessionStore: sessionStore,
+            interactionIntentEngine: interactionIntentEngine
+        )
         self.deck = deck
         let controller = MachinenController(deck: deck)
         let apiServer = MachinenAPIServer(controller: controller)
@@ -58,13 +69,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.tabbingMode = .disallowed
         window.acceptsMouseMovedEvents = true
         self.window = window
+        PerformanceMonitor.shared.configure(window: window, contentView: deck)
         commandChord = CommandChord { [weak self, weak deck] in
             // A focused terminal owns its modifier gestures just like any
             // other input. The overview chord remains available outside tiles.
             guard !(self?.window?.firstResponder is MachinenTerminalView) else { return }
             deck?.toggleOverview()
         }
-        let configuration = MachinenConfiguration.load()
+        sceneRefreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) {
+            [weak self, weak deck, weak sessionStore] _ in
+            Task { @MainActor in
+                guard let self, !self.sceneRefreshInFlight, let deck, let sessionStore else {
+                    return
+                }
+                self.sceneRefreshInFlight = true
+                defer { self.sceneRefreshInFlight = false }
+                guard let state = await sessionStore.refresh() else { return }
+                deck.applyAuthoritativeScene(state)
+            }
+        }
         desktopShortcutMonitor = DesktopShortcutMonitor(
             shortcuts: configuration.shortcuts
         ) { [weak deck] action in
@@ -80,6 +103,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         desktopShortcutMonitor?.stop()
+        sceneRefreshTimer?.invalidate()
+        PerformanceMonitor.shared.stop()
         apiServer?.stop()
         desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
@@ -132,6 +157,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsItem.keyEquivalentModifierMask = [.command]
         settingsItem.target = self
         appMenu.addItem(settingsItem)
+        let interactionPolicyItem = NSMenuItem(
+            title: "Open Interaction Policy",
+            action: #selector(openInteractionPolicyFile),
+            keyEquivalent: ""
+        )
+        interactionPolicyItem.target = self
+        appMenu.addItem(interactionPolicyItem)
+        let reloadInteractionPolicyItem = NSMenuItem(
+            title: "Reload Interaction Policy",
+            action: #selector(reloadInteractionPolicy),
+            keyEquivalent: ""
+        )
+        reloadInteractionPolicyItem.target = self
+        appMenu.addItem(reloadInteractionPolicyItem)
         appMenu.addItem(.separator())
 
         let newWorkspaceItem = NSMenuItem(
@@ -173,6 +212,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alternateCommandsItem.isHidden = true
         alternateCommandsItem.allowsKeyEquivalentWhenHidden = true
         appMenu.addItem(alternateCommandsItem)
+
+        let editMapItem = NSMenuItem(
+            title: "Edit Map",
+            action: #selector(toggleMapEdit),
+            keyEquivalent: "e"
+        )
+        editMapItem.keyEquivalentModifierMask = [.command]
+        editMapItem.target = self
+        appMenu.addItem(editMapItem)
+
+        let alternateEditMapItem = NSMenuItem(
+            title: "Edit Map",
+            action: #selector(toggleMapEdit),
+            keyEquivalent: "e"
+        )
+        alternateEditMapItem.keyEquivalentModifierMask = [.command, .shift]
+        alternateEditMapItem.target = self
+        alternateEditMapItem.isHidden = true
+        alternateEditMapItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(alternateEditMapItem)
 
         let terminalMenuItem = NSMenuItem(
             title: "Terminal Menu…",
@@ -262,6 +321,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         debugItem.target = self
         viewMenu.addItem(debugItem)
+        viewMenu.addItem(.separator())
+        let performanceItem = NSMenuItem(
+            title: "Show Performance HUD",
+            action: #selector(togglePerformanceHUD),
+            keyEquivalent: "b"
+        )
+        performanceItem.keyEquivalentModifierMask = [.command, .option, .shift]
+        performanceItem.target = self
+        viewMenu.addItem(performanceItem)
+        let revealPerformanceLogItem = NSMenuItem(
+            title: "Reveal Performance Log",
+            action: #selector(revealPerformanceLog),
+            keyEquivalent: ""
+        )
+        revealPerformanceLogItem.target = self
+        viewMenu.addItem(revealPerformanceLogItem)
+        let clearPerformanceLogItem = NSMenuItem(
+            title: "Clear Performance Log",
+            action: #selector(clearPerformanceLog),
+            keyEquivalent: ""
+        )
+        clearPerformanceLogItem.target = self
+        viewMenu.addItem(clearPerformanceLogItem)
         viewItem.submenu = viewMenu
         mainMenu.addItem(viewItem)
 
@@ -301,6 +383,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if menuItem.action == #selector(showTerminalMenu) {
             return window?.firstResponder is MachinenTerminalView
         }
+        if menuItem.action == #selector(togglePerformanceHUD) {
+            menuItem.state = PerformanceMonitor.shared.isEnabled ? .on : .off
+        }
         return true
     }
 
@@ -313,12 +398,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    @objc private func openInteractionPolicyFile() {
+        let url = interactionIntentEngine?.policyURL ?? InteractionIntentEngine.defaultURL
+        guard NSWorkspace.shared.open(url) else {
+            NSLog("Machinen could not open interaction policy at %@", url.path)
+            return
+        }
+    }
+
+    @objc private func reloadInteractionPolicy() {
+        guard let interactionIntentEngine,
+              !interactionIntentEngine.reloadNow()
+        else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Could Not Reload Interaction Policy"
+        alert.informativeText = interactionIntentEngine.lastReloadError
+            ?? "The policy is invalid. Machinen kept the last valid policy."
+        if let window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+
     @objc private func createNewWorkspaceOrTerminal() {
         deck?.createNewWorkspaceOrTerminal()
     }
 
     @objc private func toggleCommands() {
         deck?.toggleCommandPalette()
+    }
+
+    @objc private func toggleMapEdit() {
+        deck?.toggleMapEditOverlay()
     }
 
     @objc private func showTerminalMenu() {
@@ -355,5 +468,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func showDebugInformation() {
         deck?.showDebugInformation()
+    }
+
+    @objc private func togglePerformanceHUD() {
+        PerformanceMonitor.shared.toggle()
+    }
+
+    @objc private func revealPerformanceLog() {
+        PerformanceMonitor.shared.revealLog()
+    }
+
+    @objc private func clearPerformanceLog() {
+        PerformanceMonitor.shared.clearLog()
     }
 }

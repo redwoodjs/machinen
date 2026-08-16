@@ -143,6 +143,15 @@ describe("MachinenDesktopClient", () => {
     client.close();
   });
 
+  it("manages registered targets through typed helpers", async () => {
+    const client = createClient();
+    await client.targets.register("mini");
+
+    expect(operations).toEqual(["system.hello", "events.subscribe", "target.register"]);
+    expect(lastRequest?.params).toEqual({ host: "mini" });
+    client.close();
+  });
+
   it("registers context commands through the typed helper", async () => {
     const client = createClient();
     await client.commands.set({

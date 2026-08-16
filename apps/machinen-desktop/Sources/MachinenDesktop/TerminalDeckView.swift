@@ -8,6 +8,7 @@ final class TerminalDeckView: NSView {
         let duration: TimeInterval
         let startAlpha: CGFloat
         let targetAlpha: CGFloat
+        let performanceID: PerformanceMonitor.SpanID?
         let completion: (@MainActor () -> Void)?
     }
 
@@ -33,6 +34,25 @@ final class TerminalDeckView: NSView {
         let tile: TerminalTileView
         let position: Int
         let disconnectedAt: Date
+    }
+
+    private struct PendingWorkspaceTile {
+        let tile: TerminalTileView
+        let position: Int
+        let state: TerminalSession.State
+        let wasAttached: Bool
+    }
+
+    private struct PendingWorkspaceClose {
+        let targetID: String
+        let location: WorkspaceLocation
+        let nativeRecord: NativeWorkspaceRecord
+        let discoveredSessions: [AvailableTerminalSession]
+        let discoveryState: TargetDiscovery.State
+        let discoveryError: String?
+        let sceneRecord: WorkspaceRecord?
+        let scenePosition: Int?
+        let sceneTiles: [PendingWorkspaceTile]
     }
 
     private struct TerminalSelectionContext {
@@ -68,6 +88,7 @@ final class TerminalDeckView: NSView {
     private enum NewWorkspaceEntry {
         case newItem
         case commands
+        case sharedWorkspaces
     }
 
     private enum NewWorkspaceNameReturn {
@@ -100,6 +121,50 @@ final class TerminalDeckView: NSView {
         static let maximum: CGFloat = 2
     }
 
+    enum CameraSwipeDirection {
+        case left
+        case right
+        case up
+        case down
+    }
+
+    private struct TwoFingerCameraSwipe {
+        var horizontal: CGFloat = 0
+        var vertical: CGFloat = 0
+    }
+
+    private struct DirectTrackpadSwipe {
+        let fingerCount: Int
+        let start: NSPoint
+        var direction: CameraSwipeDirection? = nil
+        var sourceCameraBounds: NSRect? = nil
+        var targetCameraBounds: NSRect? = nil
+        var deepTargetCameraBounds: NSRect? = nil
+        var deepTargetWorkspaceID: String? = nil
+        var deepTargetTileID: String? = nil
+        var pointerLocation: NSPoint? = nil
+        var sourceSelectedIndex = 0
+        var targetSelectedIndex: Int? = nil
+        var progress: CGFloat = 0
+        var didTrigger = false
+    }
+
+    private enum CameraSwipe {
+        static let twoFingerThreshold: CGFloat = 42
+        static let directTouchThreshold: CGFloat = 0.045
+        static let directTouchTravel: CGFloat = 0.22
+        static let releaseThreshold: CGFloat = 0.35
+        static let cancelDuration: TimeInterval = 0.12
+        static let duplicateSuppressionDuration: TimeInterval = 0.30
+    }
+
+    private struct MapEditReturnState {
+        let workspaceID: String?
+        let overviewWorkspaceID: String?
+        let selectedTileID: String?
+        let focusedTileID: String?
+    }
+
     private enum Metrics {
         static let topInset: CGFloat = 18
         static let bottomInset: CGFloat = 18
@@ -115,8 +180,16 @@ final class TerminalDeckView: NSView {
     private let spatialMinimapView = SpatialMinimapView()
     private let sessionStore: TerminalSessionStore
     private let sessionBackend: any TerminalSessionBackend
+    private let interactionIntentEngine: InteractionIntentEngine
+    private var interactionPolicySession: InteractionIntentPolicy?
     private var workspaces: [WorkspaceRecord]
     private var workspaceLocationHistory: [WorkspaceLocation]
+    private var targetMachines: [TargetMachine]
+    private var targetDiscoveries: [String: TargetDiscovery] = [:]
+    private var targetDiscoveryInFlight: Set<String> = []
+    private var targetDiscoveryGeneration: [String: UInt64] = [:]
+    private var targetDiscoveryFailureCount: [String: Int] = [:]
+    private var targetDiscoveryRetryAfter: [String: Date] = [:]
 
     private var allSessionTiles: [TerminalTileView]
     private var workspaceClusters: [WorkspaceClusterView] = []
@@ -130,12 +203,23 @@ final class TerminalDeckView: NSView {
     private var peekCameraBounds: NSRect?
     private var labelBuffer = ""
     private var isShuttingDown = false
+    private var appliesAuthoritativeScene = false
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
     private var newWorkspaceEntry: NewWorkspaceEntry?
+    private var registersSharedWorkspaceOnly = false
     private var locationValidationProcess: Process?
     private let remotePathCompleter = RemoteWorkspacePathCompleter()
     private var presentedOverlay: NSView?
+    private var mapEditOverlay: MapEditOverlayView?
+    private var mapEditReturnState: MapEditReturnState?
+    private var addWorkspaceClusterView: WorkspaceClusterView?
+    private var addWorkspaceCardView: AddWorkspaceCardView?
+    private var addTerminalTileView: TerminalTileView?
+    private var addTerminalCardView: AddTerminalCardView?
+    private var inlineConfirmationView: ActionConfirmationView?
+    private var localizedActionCameraBounds: NSRect?
+    private var ghostWorkspaceTargets: [String: (String, NativeWorkspaceRecord)] = [:]
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
@@ -144,7 +228,13 @@ final class TerminalDeckView: NSView {
     private var spatialMinimapHoldUntil: TimeInterval?
     private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
+    private var twoFingerCameraSwipe: TwoFingerCameraSwipe?
+    private var modifiedCameraScroll: TwoFingerCameraSwipe?
+    private var directTrackpadSwipe: DirectTrackpadSwipe?
+    private var gestureEventMonitor: Any?
+    private var suppressGestureEventsUntil: TimeInterval = 0
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
+    private var effectiveStatusWidgets: [MachinenStatusWidget] = []
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
     private var contextCommands: [String: MachinenContextCommand] = [:]
     private var spatialDrag: SpatialDrag?
@@ -152,20 +242,25 @@ final class TerminalDeckView: NSView {
     private weak var dragTargetTile: TerminalTileView?
     private weak var dragTargetWorkspace: WorkspaceClusterView?
     private var recentlyClosedTerminals: [String: RecentlyClosedTerminal]
+    private var pendingWorkspaceCloses: [String: PendingWorkspaceClose] = [:]
+    private var pendingWorkspaceCloseTasks: [String: DispatchWorkItem] = [:]
+    private var finalizingWorkspaceIDsByTarget: [String: Set<String>] = [:]
     private var undoCloseView: UndoTerminalCloseView?
     private var undoToastTerminalID: String?
+    private var undoToastWorkspaceID: String?
     private var undoToastDismissTask: DispatchWorkItem?
     private var availableSessionsView: AvailableSessionsView?
+    private var targetSessionsView: TargetSessionsView?
     private var availableSessionsWorkspaceID: String?
     private var availableSessionsReturnsToCommands = false
     private var availableSessionsPendingSelectionID: String?
     private var availableSessionsByMachine: [String: [AvailableTerminalSession]] = [:]
     private var availableSessionsErrors: [String: String] = [:]
     private var availableSessionsLastRefresh: [String: Date] = [:]
-    private var availableSessionsLoading: Set<String> = []
     private var availableSessionsRefreshTimer: Timer?
     private let undoToastDuration: TimeInterval = 3
     private let availableSessionsRefreshInterval: TimeInterval = 10
+    private let maximumTargetDiscoveryBackoff: TimeInterval = 120
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -177,12 +272,15 @@ final class TerminalDeckView: NSView {
     init(
         state: MachinenStoredState,
         sessionStore: TerminalSessionStore,
+        interactionIntentEngine: InteractionIntentEngine,
         sessionBackend: (any TerminalSessionBackend)? = nil
     ) {
         self.sessionStore = sessionStore
         self.sessionBackend = sessionBackend ?? TerminalSessionBackendFactory.backend
+        self.interactionIntentEngine = interactionIntentEngine
         workspaces = state.workspaces
         workspaceLocationHistory = state.workspaceLocationHistory
+        targetMachines = state.targetMachines
         let initialTiles = state.sessions.map { TerminalTileView(session: $0) }
         allSessionTiles = initialTiles.filter { $0.session.disconnectedAt == nil }
         recentlyClosedTerminals = Dictionary(uniqueKeysWithValues: initialTiles.compactMap { tile in
@@ -218,14 +316,24 @@ final class TerminalDeckView: NSView {
         statusBarView.onHoverChange = { [weak self] widget, anchor, detail in
             self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
         }
-        statusBarView.onWidgetClick = { [weak self] widget in
+        statusBarView.onWidgetClick = { [weak self] widget, widgetFrame in
             guard let self else { return false }
             switch widget.id {
+            case "machinen.targetSessions":
+                self.toggleTargetSessions(
+                    anchor: self.convert(widgetFrame, from: self.statusBarView)
+                )
+                return true
             case "machinen.availableSessions":
-                self.toggleAvailableSessions()
+                self.toggleTargetSessions(
+                    anchor: self.convert(widgetFrame, from: self.statusBarView)
+                )
                 return true
             case "machinen.sessionControl":
-                self.toggleAvailableSessions(selecting: self.selectedSession()?.id)
+                self.toggleTargetSessions(
+                    anchor: self.convert(widgetFrame, from: self.statusBarView),
+                    selecting: self.selectedSession()?.id
+                )
                 return true
             default:
                 return false
@@ -233,6 +341,9 @@ final class TerminalDeckView: NSView {
         }
         statusBarView.onSpatialMinimapHoverChange = { [weak self] isHovered in
             self?.setSpatialMinimapPreviewed(isHovered)
+        }
+        statusBarView.onOverviewSelect = { [weak self] in
+            self?.showOverviewFromStatusBar()
         }
         statusBarView.onWorkspaceSelect = { [weak self] workspaceID in
             self?.selectWorkspaceFromStatusBar(workspaceID)
@@ -243,10 +354,25 @@ final class TerminalDeckView: NSView {
         statusBarView.onMouseDown = { [weak self] in
             self?.restoreInputFocus()
         }
-        enterSoleTerminalIfNeeded()
+        allowedTouchTypes = [.indirect]
+        wantsRestingTouches = true
+        if let workspaceID = state.selectedWorkspaceID,
+           let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID })
+        {
+            selectedIndex = workspaceIndex
+            if state.uiLevel == "workspace" || state.uiLevel == "terminal" {
+                currentWorkspace = workspaceID
+                let tiles = activeSessionTiles(for: workspaceID)
+                selectedIndex = state.selectedTerminalID.flatMap { terminalID in
+                    tiles.firstIndex { $0.session.id == terminalID }
+                } ?? 0
+                focusedIndex = state.uiLevel == "terminal" ? selectedIndex : nil
+            }
+        } else {
+            enterSoleTerminalIfNeeded()
+        }
         updateSelection()
-        synchronizeNativeWorkspaceRegistry()
-        refreshAvailableSessionsIfNeeded(force: true)
+        refreshRegisteredTargets(force: true)
         setAccessibilityElement(false)
     }
 
@@ -257,13 +383,39 @@ final class TerminalDeckView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        removeGestureEventMonitor()
         if window != nil {
+            installGestureEventMonitor()
             if availableSessionsRefreshTimer == nil { startAvailableSessionsPolling() }
-            refreshAvailableSessionsIfNeeded(force: true)
+            refreshRegisteredTargets(force: true)
         } else {
             availableSessionsRefreshTimer?.invalidate()
             availableSessionsRefreshTimer = nil
         }
+    }
+
+    private func installGestureEventMonitor() {
+        gestureEventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.scrollWheel, .swipe]
+        ) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            PerformanceMonitor.shared.recordGestureInput(event)
+            switch event.type {
+            case .scrollWheel:
+                if self.processModifiedCameraScroll(event) { return nil }
+                return self.processTwoFingerScroll(event) ? nil : event
+            case .swipe:
+                return self.processThreeFingerSwipe(event) ? nil : event
+            default:
+                return event
+            }
+        }
+    }
+
+    private func removeGestureEventMonitor() {
+        guard let gestureEventMonitor else { return }
+        NSEvent.removeMonitor(gestureEventMonitor)
+        self.gestureEventMonitor = nil
     }
 
     private var activeSessionTiles: [TerminalTileView] {
@@ -272,7 +424,13 @@ final class TerminalDeckView: NSView {
     }
 
     private func activeSessionTiles(for workspaceID: String) -> [TerminalTileView] {
-        allSessionTiles.filter { $0.session.workspaceID == workspaceID }
+        var result = allSessionTiles.filter { $0.session.workspaceID == workspaceID }
+        if let addTerminalTileView,
+           addTerminalTileView.session.workspaceID == workspaceID
+        {
+            result.append(addTerminalTileView)
+        }
+        return result
     }
 
     private var activeCount: Int {
@@ -330,13 +488,22 @@ final class TerminalDeckView: NSView {
     }
 
     private func installTile(_ tile: TerminalTileView) {
+        if mapEditOverlay != nil {
+            dismissMapEditOverlay(restorePreviousView: false)
+        }
         tile.onSelect = { [weak self, weak tile] event in
             guard let self, let tile else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            }
             self.window?.makeFirstResponder(self)
             self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
         tile.onActivate = { [weak self, weak tile] event in
             guard let self, let tile else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            }
             self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
         tile.terminalInputTarget = { [weak self, weak tile] event in
@@ -384,7 +551,6 @@ final class TerminalDeckView: NSView {
         terminalView.onStateChange = { [weak self, weak tile] state in
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.transition(to: state, terminalText: tile.session.terminalText)
-            self.saveSessions()
             self.refreshStatusBar()
             self.emitAPIEvent("terminal.stateChanged", data: self.terminalJSON(tile))
         }
@@ -423,7 +589,6 @@ final class TerminalDeckView: NSView {
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.updateRuntimeLabel(label)
             self.refreshStatusBar()
-            self.saveSessions()
             self.emitAPIEvent("terminal.labelChanged", data: self.terminalJSON(tile))
         }
         terminalView.onWorkingDirectoryChange = { [weak self, weak tile] directory in
@@ -432,7 +597,6 @@ final class TerminalDeckView: NSView {
             else { return }
             tile.session.currentWorkingDirectory = directory
             self.refreshStatusBar()
-            self.saveSessions()
             self.emitAPIEvent("terminal.workingDirectoryChanged", data: self.terminalJSON(tile))
         }
         terminalView.onOutput = { [weak self, weak tile] data in
@@ -454,29 +618,373 @@ final class TerminalDeckView: NSView {
     }
 
     private var persistedSessionTiles: [TerminalTileView] {
-        allSessionTiles + recentlyClosedTerminals.values
-            .sorted { $0.position < $1.position }
-            .map(\.tile)
+        allSessionTiles
+            + recentlyClosedTerminals.values.sorted { $0.position < $1.position }.map(\.tile)
+            + pendingWorkspaceCloses.values.flatMap { pending in
+                pending.sceneTiles.sorted { $0.position < $1.position }.map(\.tile)
+            }
+    }
+
+    private var persistedWorkspaces: [WorkspaceRecord] {
+        let pending = pendingWorkspaceCloses.values.compactMap { close -> (WorkspaceRecord, Int)? in
+            guard let record = close.sceneRecord, let position = close.scenePosition else { return nil }
+            return (record, position)
+        }.sorted { $0.1 < $1.1 }
+        var result = workspaces
+        for (record, position) in pending {
+            result.insert(record, at: min(max(0, position), result.count))
+        }
+        return result
     }
 
     private func saveSessions() {
+        guard !appliesAuthoritativeScene else { return }
         sessionStore.save(MachinenStoredState(
-            workspaces: workspaces,
+            workspaces: persistedWorkspaces,
             sessions: persistedSessionTiles.map(\.session),
-            workspaceLocationHistory: workspaceLocationHistory
+            workspaceLocationHistory: workspaceLocationHistory,
+            targetMachines: targetMachines,
+            selectedWorkspaceID: selectedWorkspaceID(),
+            selectedTerminalID: selectedSession()?.id,
+            uiLevel: currentWorkspace == nil ? "overview" : (focusedIndex == nil ? "workspace" : "terminal")
         ))
     }
 
-    private func synchronizeNativeWorkspaceRegistry() {
-        var locations = [WorkspaceLocation.local(
-            FileManager.default.homeDirectoryForCurrentUser.path
-        )]
-        for workspace in workspaces where !locations.contains(where: {
-            $0.machineID == workspace.location.machineID
-        }) {
-            locations.append(workspace.location)
+    /// Replaces the local projection after the server accepts another client's scene.
+    func applyAuthoritativeScene(_ state: MachinenStoredState) {
+        appliesAuthoritativeScene = true
+        defer { appliesAuthoritativeScene = false }
+        if authoritativeStructureMatches(state) {
+            workspaceLocationHistory = state.workspaceLocationHistory
+            targetMachines = state.targetMachines
+            applyAuthoritativeSelection(state)
+            return
         }
-        for location in locations { restoreNativeWorkspaces(from: location) }
+
+        for task in pendingWorkspaceCloseTasks.values { task.cancel() }
+        pendingWorkspaceCloseTasks.removeAll()
+        pendingWorkspaceCloses.removeAll()
+        finalizingWorkspaceIDsByTarget.removeAll()
+        let previousTiles = persistedSessionTiles
+        let previousByID = Dictionary(uniqueKeysWithValues: previousTiles.map {
+            ($0.session.id, $0)
+        })
+        var retainedIDs = Set<String>()
+        var nextActive: [TerminalTileView] = []
+        var nextClosed: [String: RecentlyClosedTerminal] = [:]
+        for incoming in state.sessions {
+            let tile: TerminalTileView
+            if let existing = previousByID[incoming.id], existing.session.tileID == incoming.tileID {
+                tile = existing
+                updateSharedSession(existing.session, from: incoming)
+            } else {
+                tile = TerminalTileView(session: incoming)
+                installTile(tile)
+                installPersistentTerminal(in: tile)
+            }
+            retainedIDs.insert(incoming.id)
+            if let disconnectedAt = incoming.disconnectedAt {
+                tile.session.state = .detached
+                tile.detachTerminalViewer()
+                nextClosed[incoming.id] = RecentlyClosedTerminal(
+                    tile: tile,
+                    position: incoming.disconnectedPosition ?? state.sessions.count,
+                    disconnectedAt: disconnectedAt
+                )
+            } else {
+                nextActive.append(tile)
+                if recentlyClosedTerminals[incoming.id] != nil { tile.attachTerminal() }
+            }
+        }
+        for tile in previousTiles where !retainedIDs.contains(tile.session.id) {
+            tile.detachTerminalForApplicationExit()
+            tile.removeFromSuperview()
+        }
+        allSessionTiles = nextActive
+        recentlyClosedTerminals = nextClosed
+        workspaces = state.workspaces
+        workspaceLocationHistory = state.workspaceLocationHistory
+        targetMachines = state.targetMachines
+        rebuildWorkspaceClusters()
+        applyAuthoritativeSelection(state)
+        refreshRegisteredTargets(force: true)
+    }
+
+    private func updateSharedSession(
+        _ session: TerminalSession,
+        from incoming: TerminalSession
+    ) {
+        session.label = incoming.label
+        session.workspaceID = incoming.workspaceID
+        session.workspace = incoming.workspace
+        session.name = incoming.name
+        session.launch = incoming.launch
+        session.workspaceRoot = incoming.workspaceRoot
+        session.startsSessionIfMissing = incoming.startsSessionIfMissing
+        session.location = incoming.location
+        session.currentWorkingDirectory = incoming.currentWorkingDirectory
+        session.titleOverride = incoming.titleOverride
+        session.disconnectedAt = incoming.disconnectedAt
+        session.disconnectedPosition = incoming.disconnectedPosition
+        if incoming.state == .stopped || incoming.state == .exited {
+            session.state = incoming.state
+        }
+    }
+
+    private func applyAuthoritativeSelection(_ state: MachinenStoredState) {
+        let localLevel = currentWorkspace == nil
+            ? "overview"
+            : (focusedIndex == nil ? "workspace" : "terminal")
+        if selectedWorkspaceID() == state.selectedWorkspaceID,
+           selectedSession()?.id == state.selectedTerminalID,
+           localLevel == state.uiLevel
+        {
+            refreshStatusBar()
+            return
+        }
+        if let workspaceID = state.selectedWorkspaceID,
+           let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID })
+        {
+            selectedIndex = workspaceIndex
+            if state.uiLevel == "workspace" || state.uiLevel == "terminal" {
+                currentWorkspace = workspaceID
+                let tiles = activeSessionTiles(for: workspaceID)
+                selectedIndex = state.selectedTerminalID.flatMap { id in
+                    tiles.firstIndex { $0.session.id == id }
+                } ?? 0
+                focusedIndex = state.uiLevel == "terminal" ? selectedIndex : nil
+            } else {
+                currentWorkspace = nil
+                focusedIndex = nil
+            }
+        } else {
+            currentWorkspace = nil
+            selectedIndex = 0
+            focusedIndex = nil
+        }
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+        refreshStatusBar()
+    }
+
+    private func authoritativeStructureMatches(_ state: MachinenStoredState) -> Bool {
+        let currentWorkspaces = persistedWorkspaces.map {
+            [$0.id, $0.name, $0.location.kind.rawValue, $0.location.host ?? "", $0.location.path]
+        }
+        let nextWorkspaces = state.workspaces.map {
+            [$0.id, $0.name, $0.location.kind.rawValue, $0.location.host ?? "", $0.location.path]
+        }
+        guard currentWorkspaces == nextWorkspaces else { return false }
+        func key(_ session: TerminalSession) -> [String] {
+            let lifecycle = session.disconnectedAt != nil
+                ? "detached"
+                : (session.state == .stopped || session.state == .exited ? session.state.rawValue : "live")
+            let environment = session.launch.environment?.sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }.joined(separator: "\u{1f}") ?? ""
+            return [
+                session.id, session.tileID, session.label, session.workspaceID,
+                session.workspace, session.name, session.workspaceRoot,
+                session.startsSessionIfMissing.description,
+                session.location.kind.rawValue, session.location.host ?? "", session.location.path,
+                session.launch.kind.rawValue, session.launch.command ?? "",
+                session.launch.executable ?? "", session.launch.arguments?.joined(separator: "\u{1f}") ?? "",
+                environment, session.titleOverride ?? "", lifecycle,
+                session.disconnectedPosition.map(String.init) ?? "",
+            ]
+        }
+        return persistedSessionTiles.map { key($0.session) } == state.sessions.map(key)
+    }
+
+    private typealias RegisteredTargetLocation = (
+        id: String,
+        location: WorkspaceLocation,
+        name: String
+    )
+
+    private func registeredTargetLocations() -> [RegisteredTargetLocation] {
+        [("local", .local(FileManager.default.homeDirectoryForCurrentUser.path), "this Mac")]
+            + targetMachines.map { ($0.id, $0.location, $0.displayName) }
+    }
+
+    private func registeredTargetLocation(id: String) -> WorkspaceLocation? {
+        if id == "local" {
+            return .local(FileManager.default.homeDirectoryForCurrentUser.path)
+        }
+        return targetMachines.first { $0.id == id }?.location
+    }
+
+    private func targetID(for location: WorkspaceLocation) -> String? {
+        guard let host = location.sshHost else { return "local" }
+        return targetMachines.first {
+            TargetMachine.normalizedHost($0.sshHost) == TargetMachine.normalizedHost(host)
+        }?.id
+    }
+
+    private func registerTargetIfNeeded(for location: WorkspaceLocation) {
+        guard let host = location.sshHost, targetID(for: location) == nil else { return }
+        targetMachines.append(TargetMachine(sshHost: host))
+    }
+
+    /// Polling is deliberately discovery-only. It updates this Desktop's
+    /// browser cache and never creates a workspace, tile, or viewer.
+    private func refreshRegisteredTargets(force: Bool = false) {
+        for target in registeredTargetLocations() {
+            refreshRegisteredTarget(target.id, at: target.location, force: force)
+        }
+    }
+
+    private func refreshRegisteredTarget(
+        _ targetID: String,
+        at location: WorkspaceLocation,
+        force: Bool
+    ) {
+        guard registeredTargetLocation(id: targetID) == location,
+              !targetDiscoveryInFlight.contains(targetID)
+        else { return }
+        let now = Date()
+        if !force {
+            if let retryAfter = targetDiscoveryRetryAfter[targetID], retryAfter > now { return }
+            if let discovery = targetDiscoveries[targetID],
+               now.timeIntervalSince(discovery.checkedAt) < availableSessionsRefreshInterval
+            {
+                return
+            }
+        }
+
+        let generation = (targetDiscoveryGeneration[targetID] ?? 0) + 1
+        targetDiscoveryGeneration[targetID] = generation
+        targetDiscoveryInFlight.insert(targetID)
+        sessionBackend.listSessions(at: location) { [weak self] sessionsResult in
+            guard let self,
+                  self.targetDiscoveryRequestIsCurrent(
+                      targetID: targetID,
+                      location: location,
+                      generation: generation
+                  )
+            else { return }
+            switch sessionsResult {
+            case let .success(sessions):
+                self.sessionBackend.listWorkspaces(at: location) { [weak self] workspacesResult in
+                    guard let self,
+                          self.targetDiscoveryRequestIsCurrent(
+                              targetID: targetID,
+                              location: location,
+                              generation: generation
+                          )
+                    else { return }
+                    switch workspacesResult {
+                    case let .success(workspaces):
+                        self.finishTargetDiscovery(
+                            targetID: targetID,
+                            location: location,
+                            generation: generation,
+                            sessions: sessions,
+                            workspaces: workspaces
+                        )
+                    case let .failure(error):
+                        self.failTargetDiscovery(
+                            targetID: targetID,
+                            location: location,
+                            generation: generation,
+                            error: error
+                        )
+                    }
+                }
+            case let .failure(error):
+                self.failTargetDiscovery(
+                    targetID: targetID,
+                    location: location,
+                    generation: generation,
+                    error: error
+                )
+            }
+        }
+    }
+
+    private func targetDiscoveryRequestIsCurrent(
+        targetID: String,
+        location: WorkspaceLocation,
+        generation: UInt64
+    ) -> Bool {
+        targetDiscoveryGeneration[targetID] == generation
+            && registeredTargetLocation(id: targetID) == location
+    }
+
+    private func finishTargetDiscovery(
+        targetID: String,
+        location: WorkspaceLocation,
+        generation: UInt64,
+        sessions: [AvailableTerminalSession],
+        workspaces: [NativeWorkspaceRecord]
+    ) {
+        guard targetDiscoveryRequestIsCurrent(
+            targetID: targetID,
+            location: location,
+            generation: generation
+        ) else { return }
+        var pendingWorkspaceIDs = Set(pendingWorkspaceCloses.values.lazy
+            .filter { $0.targetID == targetID }
+            .map { $0.nativeRecord.id })
+        pendingWorkspaceIDs.formUnion(finalizingWorkspaceIDsByTarget[targetID] ?? [])
+        let activeSessions = sessions.filter {
+            ($0.state == "running" || $0.state == "created")
+                && !($0.workspaceId.map(pendingWorkspaceIDs.contains) ?? false)
+        }
+        let visibleWorkspaces = workspaces.filter { !pendingWorkspaceIDs.contains($0.id) }
+        let now = Date()
+        targetDiscoveryInFlight.remove(targetID)
+        targetDiscoveryFailureCount.removeValue(forKey: targetID)
+        targetDiscoveryRetryAfter.removeValue(forKey: targetID)
+        targetDiscoveries[targetID] = TargetDiscovery(
+            state: activeSessions.isEmpty ? .inactive : .online,
+            sessions: activeSessions,
+            workspaces: visibleWorkspaces,
+            checkedAt: now,
+            error: nil
+        )
+        availableSessionsByMachine[location.machineID] = activeSessions
+        availableSessionsErrors.removeValue(forKey: location.machineID)
+        availableSessionsLastRefresh[location.machineID] = now
+        targetDiscoveryDidChange()
+    }
+
+    private func failTargetDiscovery(
+        targetID: String,
+        location: WorkspaceLocation,
+        generation: UInt64,
+        error: Error
+    ) {
+        guard targetDiscoveryRequestIsCurrent(
+            targetID: targetID,
+            location: location,
+            generation: generation
+        ) else { return }
+        let now = Date()
+        let failures = (targetDiscoveryFailureCount[targetID] ?? 0) + 1
+        let backoff = min(
+            maximumTargetDiscoveryBackoff,
+            availableSessionsRefreshInterval * pow(2, Double(min(4, failures - 1)))
+        )
+        targetDiscoveryInFlight.remove(targetID)
+        targetDiscoveryFailureCount[targetID] = failures
+        targetDiscoveryRetryAfter[targetID] = now.addingTimeInterval(backoff)
+        let prior = targetDiscoveries[targetID]
+        targetDiscoveries[targetID] = TargetDiscovery(
+            state: .unreachable,
+            sessions: prior?.sessions ?? [],
+            workspaces: prior?.workspaces ?? [],
+            checkedAt: now,
+            error: error.localizedDescription
+        )
+        availableSessionsErrors[location.machineID] = error.localizedDescription
+        targetDiscoveryDidChange()
+    }
+
+    private func targetDiscoveryDidChange() {
+        refreshAvailableSessionsPanel()
+        refreshTargetSessionsView()
+        refreshStatusBar()
     }
 
     private func persistNativeWorkspace(_ workspace: WorkspaceRecord) {
@@ -524,176 +1032,6 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func migrateNativeWorkspace(
-        _ workspace: WorkspaceRecord,
-        replacing previousID: String
-    ) {
-        let sessions = persistedSessionTiles.map(\.session).filter {
-            $0.workspaceID == workspace.id
-        }
-        var locationsByMachine = [workspace.location.machineID: workspace.location]
-        for session in sessions where locationsByMachine[session.location.machineID] == nil {
-            var anchor = session.location
-            anchor.path = session.workspaceRoot
-            locationsByMachine[anchor.machineID] = anchor
-        }
-        for location in locationsByMachine.values {
-            let sessionIDs = sessions.filter {
-                $0.location.machineID == location.machineID
-            }.map(\.id)
-            sessionBackend.saveWorkspace(
-                id: workspace.id,
-                name: workspace.name,
-                at: location,
-                sessionIDs: sessionIDs
-            ) { [weak self] result in
-                guard let self else { return }
-                guard case .success = result else {
-                    if case let .failure(error) = result {
-                        NSLog(
-                            "Machinen could not migrate native workspace: %@",
-                            String(describing: error)
-                        )
-                    }
-                    return
-                }
-                self.sessionBackend.deleteWorkspace(id: previousID, at: location) { result in
-                    if case let .failure(error) = result {
-                        NSLog(
-                            "Machinen could not remove the superseded native workspace: %@",
-                            String(describing: error)
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func restoreNativeWorkspaces(from location: WorkspaceLocation) {
-        sessionBackend.listWorkspaces(at: location) { [weak self] result in
-            guard let self else { return }
-            guard case let .success(records) = result else {
-                for workspace in self.workspaces where
-                    workspace.location.machineID == location.machineID
-                {
-                    self.persistNativeWorkspace(workspace)
-                }
-                return
-            }
-            var nativeWorkspaceKeys = Set<String>()
-            let canonicalRecords = records.filter { record in
-                let root = self.normalizedSessionPath(record.rootDirectory)
-                let key = WorkspaceName.key(record.name) + "\u{0}" + root
-                return nativeWorkspaceKeys.insert(key).inserted
-            }
-            var changed = false
-            var restored: [WorkspaceRecord] = []
-            var updated: [WorkspaceRecord] = []
-            var migrated: [(workspace: WorkspaceRecord, previousID: String)] = []
-            var usedNames = Set(self.workspaces.map { WorkspaceName.key($0.name) })
-            for record in canonicalRecords {
-                if let existing = self.workspaces.first(where: { $0.id == record.id }) {
-                    guard existing.location.machineID == location.machineID else { continue }
-                    let previousName = existing.name
-                    let previousRoot = existing.location.path
-                    usedNames.remove(WorkspaceName.key(previousName))
-                    existing.name = WorkspaceName.unique(record.name, reserving: &usedNames)
-                    existing.location.path = record.rootDirectory
-                    for tile in self.persistedSessionTiles where
-                        tile.session.workspaceID == existing.id
-                    {
-                        tile.session.workspace = existing.name
-                    }
-                    if previousName != existing.name || previousRoot != existing.location.path {
-                        self.rememberWorkspaceLocation(existing.location)
-                        updated.append(existing)
-                        changed = true
-                    }
-                    continue
-                }
-                if let existingIndex = self.workspaces.firstIndex(where: {
-                    $0.location.machineID == location.machineID
-                        && WorkspaceName.key($0.name) == WorkspaceName.key(record.name)
-                        && self.normalizedSessionPath($0.location.path)
-                            == self.normalizedSessionPath(record.rootDirectory)
-                }) {
-                    let previous = self.workspaces[existingIndex]
-                    let previousID = previous.id
-                    usedNames.remove(WorkspaceName.key(previous.name))
-                    let workspace = WorkspaceRecord(
-                        id: record.id,
-                        name: WorkspaceName.unique(record.name, reserving: &usedNames),
-                        workingDirectory: record.rootDirectory,
-                        sshHost: location.sshHost
-                    )
-                    self.workspaces[existingIndex] = workspace
-                    for tile in self.persistedSessionTiles where
-                        tile.session.workspaceID == previousID
-                    {
-                        tile.session.workspaceID = workspace.id
-                        tile.session.workspace = workspace.name
-                        tile.session.workspaceRoot = workspace.workingDirectory
-                    }
-                    if self.currentWorkspace == previousID {
-                        self.currentWorkspace = workspace.id
-                    }
-                    if let terminalID = self.activeTerminalByWorkspace.removeValue(
-                        forKey: previousID
-                    ) {
-                        self.activeTerminalByWorkspace[workspace.id] = terminalID
-                    }
-                    if self.availableSessionsWorkspaceID == previousID {
-                        self.availableSessionsWorkspaceID = workspace.id
-                    }
-                    self.rememberWorkspaceLocation(workspace.location)
-                    migrated.append((workspace, previousID))
-                    updated.append(workspace)
-                    changed = true
-                    continue
-                }
-                let name = WorkspaceName.unique(record.name, reserving: &usedNames)
-                let workspace = WorkspaceRecord(
-                    id: record.id,
-                    name: name,
-                    workingDirectory: record.rootDirectory,
-                    sshHost: location.sshHost
-                )
-                self.workspaces.append(workspace)
-                self.rememberWorkspaceLocation(workspace.location)
-                restored.append(workspace)
-                changed = true
-            }
-            let nativeIDs = Set(canonicalRecords.map(\.id))
-            for workspace in self.workspaces where
-                workspace.location.machineID == location.machineID
-                    && !nativeIDs.contains(workspace.id)
-            {
-                self.persistNativeWorkspace(workspace)
-            }
-            for migration in migrated {
-                self.migrateNativeWorkspace(
-                    migration.workspace,
-                    replacing: migration.previousID
-                )
-            }
-            guard changed else { return }
-            self.rebuildWorkspaceClusters()
-            self.updateWorldGeometry()
-            self.updateSelection()
-            self.setCameraImmediately()
-            self.saveSessions()
-            for workspace in restored {
-                self.emitAPIEvent("workspace.restored", data: self.workspaceJSON(workspace))
-            }
-            for workspace in updated {
-                self.emitAPIEvent("workspace.updated", data: self.workspaceJSON(workspace))
-            }
-            if let workspace = restored.first {
-                self.refreshAvailableSessions(for: workspace, force: true)
-            }
-        }
-    }
-
     private func rebuildWorkspaceClusters() {
         let existing = Dictionary(uniqueKeysWithValues: workspaceClusters.map { ($0.workspaceID, $0) })
         var usedLabels = Set(existing.values.map(\.label))
@@ -724,6 +1062,9 @@ final class TerminalDeckView: NSView {
                     guard let self, let cluster,
                           let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
                     else { return }
+                    if self.mapEditOverlay != nil {
+                        self.dismissMapEditOverlay(restorePreviousView: false)
+                    }
                     self.window?.makeFirstResponder(self)
                     if self.currentWorkspace == nil {
                         self.activate(index)
@@ -731,9 +1072,12 @@ final class TerminalDeckView: NSView {
                 }
                 cluster.onActivate = { [weak self, weak cluster] in
                     guard let self, let cluster,
-                          let index = self.workspaceClusters.firstIndex(where: { $0 === cluster }),
-                          self.currentWorkspace == nil
+                          let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
                     else { return }
+                    if self.mapEditOverlay != nil {
+                        self.dismissMapEditOverlay(restorePreviousView: false)
+                    }
+                    guard self.currentWorkspace == nil else { return }
                     self.activate(index)
                 }
                 cluster.onDragBegan = { [weak self, weak cluster] event in
@@ -844,19 +1188,20 @@ final class TerminalDeckView: NSView {
     private func updateWorldGeometry() {
         let viewport = sceneViewportBounds
         let terminalSize = NSSize(width: max(1, viewport.width), height: max(1, viewport.height))
+        let layoutViews: [NSView] = workspaceClusters
         let sizes = workspaceClusters.map { cluster in
             cluster.arrange(
-                sessions: allSessionTiles.filter { $0.session.workspaceID == cluster.workspaceID },
+                sessions: activeSessionTiles(for: cluster.workspaceID),
                 terminalSize: terminalSize
             )
         }
-        guard !workspaceClusters.isEmpty else {
+        guard !layoutViews.isEmpty else {
             workspaceUnion = .zero
             return
         }
 
-        let columns = min(2, workspaceClusters.count)
-        let rows = Int(ceil(Double(workspaceClusters.count) / Double(columns)))
+        let columns = min(2, layoutViews.count)
+        let rows = Int(ceil(Double(layoutViews.count) / Double(columns)))
         var columnWidths = Array(repeating: CGFloat.zero, count: columns)
         var rowHeights = Array(repeating: CGFloat.zero, count: rows)
         for (index, size) in sizes.enumerated() {
@@ -874,17 +1219,17 @@ final class TerminalDeckView: NSView {
         }
 
         workspaceUnion = .null
-        for (index, cluster) in workspaceClusters.enumerated() {
+        for (index, view) in layoutViews.enumerated() {
             let column = index % columns
             let row = index / columns
             let size = sizes[index]
-            cluster.frame = NSRect(
+            view.frame = NSRect(
                 x: xOffsets[column] + (columnWidths[column] - size.width) / 2,
                 y: yOffsets[row] + (rowHeights[row] - size.height) / 2,
                 width: size.width,
                 height: size.height
             ).integral
-            workspaceUnion = workspaceUnion.union(cluster.frame)
+            workspaceUnion = workspaceUnion.union(view.frame)
         }
     }
 
@@ -939,11 +1284,7 @@ final class TerminalDeckView: NSView {
                 viewport: sceneViewportBounds
             ))
         }
-        return applyingCameraMagnification(to: cameraBounds(
-            for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: 0),
-            viewport: overviewViewport(),
-            alignTargetToTop: true
-        ))
+        return overviewCameraBounds()
     }
 
     private func applyingCameraMagnification(to cameraBounds: NSRect) -> NSRect {
@@ -1154,6 +1495,7 @@ final class TerminalDeckView: NSView {
     private func setCameraImmediately() {
         cameraAnimationTimer?.invalidate()
         cameraAnimationTimer = nil
+        PerformanceMonitor.shared.endSpan(cameraAnimation?.performanceID, outcome: "interrupted")
         cameraAnimation = nil
         isTransitioning = false
         endSpatialMinimapAnimation()
@@ -1174,10 +1516,24 @@ final class TerminalDeckView: NSView {
         completion: (@MainActor () -> Void)? = nil
     ) {
         statusPopoverView.dismiss()
+        PerformanceMonitor.shared.endSpan(cameraAnimation?.performanceID, outcome: "interrupted")
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
         let targetAlpha = requestedTargetAlpha ?? sceneView.alphaValue
+        let performanceID = PerformanceMonitor.shared.beginSpan(
+            "camera.animation",
+            intendedDuration: duration,
+            metadata: [
+                "start_width": Double(start.width),
+                "start_height": Double(start.height),
+                "target_width": Double(target.width),
+                "target_height": Double(target.height),
+            ]
+        )
+        // Camera state stays local during interaction. A remote state write here
+        // delayed every first frame and made independent viewers move together.
+        PerformanceMonitor.shared.markWorkStarted(performanceID)
         guard duration > 0, start.width > 0, start.height > 0,
               target.width > 0, target.height > 0
         else {
@@ -1186,6 +1542,7 @@ final class TerminalDeckView: NSView {
             isTransitioning = false
             refreshSpatialMinimap(cameraBounds: sceneView.bounds)
             restoreInputFocus()
+            PerformanceMonitor.shared.endSpan(performanceID)
             completion?()
             return
         }
@@ -1200,15 +1557,18 @@ final class TerminalDeckView: NSView {
             duration: duration,
             startAlpha: sceneView.alphaValue,
             targetAlpha: targetAlpha,
+            performanceID: performanceID,
             completion: completion
         )
+        let framesPerSecond = max(30, window?.screen?.maximumFramesPerSecond ?? 60)
         let timer = Timer(
-            timeInterval: 1 / 120,
+            timeInterval: 1 / Double(framesPerSecond),
             target: self,
             selector: #selector(stepCameraAnimation(_:)),
             userInfo: nil,
             repeats: true
         )
+        timer.tolerance = 1 / Double(framesPerSecond) * 0.05
         cameraAnimationTimer = timer
         RunLoop.main.add(timer, forMode: .common)
     }
@@ -1219,6 +1579,7 @@ final class TerminalDeckView: NSView {
             return
         }
         let now = ProcessInfo.processInfo.systemUptime
+        PerformanceMonitor.shared.markFrame(animation.performanceID)
         let elapsed = now - animation.startedAt
         let linearProgress = min(1, max(0, elapsed / animation.duration))
         let progress = cameraAnimationProgress(CGFloat(linearProgress))
@@ -1252,7 +1613,60 @@ final class TerminalDeckView: NSView {
         isTransitioning = false
         restoreInputFocus()
         needsDisplay = true
+        PerformanceMonitor.shared.endSpan(animation.performanceID)
         animation.completion?()
+    }
+
+    private func prepareForInteractionIntent() -> Bool {
+        guard !isPeeking else { return false }
+        if isTransitioning {
+            cameraAnimationTimer?.invalidate()
+            cameraAnimationTimer = nil
+            if let cameraAnimation {
+                sceneView.bounds = cameraAnimation.target
+                sceneView.alphaValue = cameraAnimation.targetAlpha
+                PerformanceMonitor.shared.endSpan(
+                    cameraAnimation.performanceID,
+                    outcome: "interrupted"
+                )
+            }
+            cameraAnimation = nil
+            isTransitioning = false
+            sceneView.alphaValue = 1
+            endSpatialMinimapAnimation()
+        }
+        return true
+    }
+
+    private func moveCameraForPolicy(
+        _ policy: InteractionIntentPolicy.Camera,
+        to destination: NSRect,
+        completion: (@MainActor () -> Void)? = nil
+    ) {
+        if policy == .none || cameraBoundsMatch(sceneView.bounds, destination) {
+            completion?()
+            return
+        }
+        let intentPolicy = interactionPolicySession ?? interactionIntentEngine.snapshot()
+        moveCamera(
+            to: destination,
+            duration: TimeInterval(intentPolicy.cameraDurationMilliseconds) / 1_000,
+            completion: completion
+        )
+    }
+
+    private func cameraDestination(
+        for policy: InteractionIntentPolicy.Camera,
+        direct destination: NSRect
+    ) -> NSRect {
+        policy == .parentLevel ? currentCameraBounds() : destination
+    }
+
+    private func cameraBoundsMatch(_ left: NSRect, _ right: NSRect) -> Bool {
+        abs(left.minX - right.minX) < 0.5
+            && abs(left.minY - right.minY) < 0.5
+            && abs(left.width - right.width) < 0.5
+            && abs(left.height - right.height) < 0.5
     }
 
     private func cameraAnimationProgress(_ linearProgress: CGFloat) -> CGFloat {
@@ -1286,8 +1700,732 @@ final class TerminalDeckView: NSView {
             + parameter * parameter * parameter
     }
 
+    override func scrollWheel(with event: NSEvent) {
+        if processModifiedCameraScroll(event) { return }
+        if processTwoFingerScroll(event) { return }
+        super.scrollWheel(with: event)
+    }
+
+    private func processModifiedCameraScroll(_ event: NSEvent) -> Bool {
+        let requiredModifiers: NSEvent.ModifierFlags = [.command, .shift]
+        guard event.modifierFlags.intersection(requiredModifiers) == requiredModifiers else {
+            modifiedCameraScroll = nil
+            return false
+        }
+        if event.momentumPhase != [] { return true }
+
+        let deviceDirection: CGFloat = event.isDirectionInvertedFromDevice ? -1 : 1
+        if !event.hasPreciseScrollingDeltas || event.phase == [] {
+            _ = performModifiedCameraScroll(
+                horizontal: event.scrollingDeltaX * deviceDirection,
+                vertical: event.scrollingDeltaY * deviceDirection,
+                pointerLocation: event.locationInWindow
+            )
+            return true
+        }
+
+        if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
+            modifiedCameraScroll = TwoFingerCameraSwipe()
+        }
+        if event.phase.contains(.changed) || event.phase.contains(.ended) {
+            if modifiedCameraScroll == nil { modifiedCameraScroll = TwoFingerCameraSwipe() }
+            modifiedCameraScroll?.horizontal += event.scrollingDeltaX * deviceDirection
+            modifiedCameraScroll?.vertical += event.scrollingDeltaY * deviceDirection
+        }
+        if event.phase.contains(.cancelled) {
+            modifiedCameraScroll = nil
+            return true
+        }
+        guard event.phase.contains(.ended), let scroll = modifiedCameraScroll else {
+            return true
+        }
+        modifiedCameraScroll = nil
+        guard let direction = cameraSwipeDirection(
+            horizontal: scroll.horizontal,
+            vertical: scroll.vertical,
+            threshold: CameraSwipe.twoFingerThreshold
+        ) else { return true }
+        _ = performCameraSwipe(
+            direction,
+            fingerCount: 3,
+            pointerLocation: event.locationInWindow
+        )
+        return true
+    }
+
+    @discardableResult
+    private func performModifiedCameraScroll(
+        horizontal: CGFloat,
+        vertical: CGFloat,
+        pointerLocation: NSPoint?
+    ) -> Bool {
+        guard max(abs(horizontal), abs(vertical)) > 0,
+              let direction = cameraSwipeDirection(
+                  horizontal: horizontal,
+                  vertical: vertical,
+                  threshold: 0
+              )
+        else { return false }
+        return performCameraSwipe(
+            direction,
+            fingerCount: 3,
+            pointerLocation: pointerLocation
+        )
+    }
+
+    @discardableResult
+    func performModifiedCameraScrollForTesting(
+        horizontal: CGFloat,
+        vertical: CGFloat
+    ) -> Bool {
+        performModifiedCameraScroll(
+            horizontal: horizontal,
+            vertical: vertical,
+            pointerLocation: nil
+        )
+    }
+
+    override func swipe(with event: NSEvent) {
+        if !processThreeFingerSwipe(event) {
+            super.swipe(with: event)
+        }
+    }
+
+    override func touchesBegan(with event: NSEvent) {
+        updateDirectTrackpadSwipe(with: event)
+        super.touchesBegan(with: event)
+    }
+
+    override func touchesMoved(with event: NSEvent) {
+        updateDirectTrackpadSwipe(with: event)
+        super.touchesMoved(with: event)
+    }
+
+    override func touchesEnded(with event: NSEvent) {
+        let remainingTouchCount = indirectTouches(in: event).count
+        if directTrackpadSwipe?.fingerCount == 3, remainingTouchCount < 3 {
+            finishInteractiveTrackpadSwipe()
+        } else if remainingTouchCount < 2 {
+            directTrackpadSwipe = nil
+        }
+        super.touchesEnded(with: event)
+    }
+
+    override func touchesCancelled(with event: NSEvent) {
+        cancelInteractiveTrackpadSwipe()
+        super.touchesCancelled(with: event)
+    }
+
+    private func processTwoFingerScroll(_ event: NSEvent) -> Bool {
+        let activeTouchCount = indirectTouches(in: event).count
+        if activeTouchCount >= 3 || directTrackpadSwipe?.fingerCount == 3 {
+            twoFingerCameraSwipe = nil
+            return true
+        }
+        if ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil {
+            if event.phase.contains(.began) {
+                suppressGestureEventsUntil = 0
+            } else {
+                twoFingerCameraSwipe = nil
+                return true
+            }
+        }
+        guard focusedIndex == nil,
+              event.hasPreciseScrollingDeltas,
+              event.phase != [],
+              presentedOverlay == nil,
+              commandPalette == nil,
+              mapEditOverlay == nil,
+              !isPeeking
+        else { return false }
+        if event.momentumPhase != [] { return true }
+
+        if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
+            twoFingerCameraSwipe = TwoFingerCameraSwipe()
+        }
+        if event.phase.contains(.changed) || event.phase.contains(.ended) {
+            if twoFingerCameraSwipe == nil {
+                twoFingerCameraSwipe = TwoFingerCameraSwipe()
+            }
+            let deviceDirection: CGFloat = event.isDirectionInvertedFromDevice ? -1 : 1
+            twoFingerCameraSwipe?.horizontal += event.scrollingDeltaX * deviceDirection
+            twoFingerCameraSwipe?.vertical += event.scrollingDeltaY * deviceDirection
+        }
+        if event.phase.contains(.cancelled) {
+            twoFingerCameraSwipe = nil
+            return true
+        }
+        guard event.phase.contains(.ended), let swipe = twoFingerCameraSwipe else {
+            return true
+        }
+        twoFingerCameraSwipe = nil
+        guard let direction = cameraSwipeDirection(
+            horizontal: swipe.horizontal,
+            vertical: swipe.vertical,
+            threshold: CameraSwipe.twoFingerThreshold
+        ) else { return true }
+        _ = performCameraSwipe(direction, fingerCount: 2)
+        return true
+    }
+
+    private func processThreeFingerSwipe(_ event: NSEvent) -> Bool {
+        if ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil {
+            return true
+        }
+        guard let direction = cameraSwipeDirection(
+            horizontal: event.deltaX,
+            vertical: event.deltaY,
+            threshold: 0.1
+        ) else { return false }
+        return performCameraSwipe(direction, fingerCount: 3)
+    }
+
+    private func updateDirectTrackpadSwipe(with event: NSEvent) {
+        let touches = indirectTouches(in: event)
+        guard touches.count == 2 || touches.count == 3 else {
+            if touches.count < 2 {
+                if directTrackpadSwipe?.fingerCount == 3 {
+                    finishInteractiveTrackpadSwipe()
+                } else {
+                    directTrackpadSwipe = nil
+                }
+            }
+            return
+        }
+        if directTrackpadSwipe?.fingerCount == 3, touches.count < 3 {
+            finishInteractiveTrackpadSwipe()
+            return
+        }
+        let center = touchCenter(touches)
+        if directTrackpadSwipe?.fingerCount != touches.count {
+            directTrackpadSwipe = DirectTrackpadSwipe(
+                fingerCount: touches.count,
+                start: center,
+                sourceSelectedIndex: selectedIndex
+            )
+            return
+        }
+        guard var swipe = directTrackpadSwipe, !swipe.didTrigger else { return }
+        let horizontal = center.x - swipe.start.x
+        let vertical = -(center.y - swipe.start.y)
+        guard let direction = swipe.direction ?? cameraSwipeDirection(
+            horizontal: horizontal,
+            vertical: vertical,
+            threshold: CameraSwipe.directTouchThreshold
+        ) else { return }
+
+        if swipe.fingerCount == 3 {
+            if swipe.direction == nil {
+                guard prepareForCameraSwipePreview() else { return }
+                swipe.direction = direction
+                swipe.sourceCameraBounds = sceneView.bounds
+                swipe.sourceSelectedIndex = selectedIndex
+                swipe.pointerLocation = window?.mouseLocationOutsideOfEventStream
+                swipe.targetCameraBounds = interactiveCameraTarget(
+                    for: direction,
+                    pointerLocation: swipe.pointerLocation,
+                    targetSelectedIndex: &swipe.targetSelectedIndex
+                )
+                prepareDeepCameraTarget(for: &swipe)
+            }
+            guard let source = swipe.sourceCameraBounds,
+                  let target = swipe.targetCameraBounds
+            else { return }
+            let travel = abs(horizontal) > abs(vertical) ? abs(horizontal) : abs(vertical)
+            let maximumProgress: CGFloat = swipe.deepTargetCameraBounds == nil ? 1 : 2
+            swipe.progress = min(
+                maximumProgress,
+                max(0, travel / CameraSwipe.directTouchTravel)
+            )
+            applyInteractiveCameraPreview(
+                swipe: swipe,
+                source: source,
+                target: target
+            )
+            directTrackpadSwipe = swipe
+            return
+        }
+
+        guard performCameraSwipe(direction, fingerCount: 2) else { return }
+        swipe.didTrigger = true
+        directTrackpadSwipe = swipe
+        suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
+            + CameraSwipe.duplicateSuppressionDuration
+    }
+
+    private func applyInteractiveCameraPreview(
+        swipe: DirectTrackpadSwipe,
+        source: NSRect,
+        target: NSRect
+    ) {
+        let selection = swipe.progress >= CameraSwipe.releaseThreshold
+            ? (swipe.targetSelectedIndex ?? swipe.sourceSelectedIndex)
+            : swipe.sourceSelectedIndex
+        if selectedIndex != selection {
+            selectedIndex = selection
+            updateSelection()
+        }
+        if swipe.progress > 1, let deepTarget = swipe.deepTargetCameraBounds {
+            sceneView.bounds = interpolatedCameraBounds(
+                from: target,
+                to: deepTarget,
+                progress: swipe.progress - 1
+            )
+        } else {
+            sceneView.bounds = interpolatedCameraBounds(
+                from: source,
+                to: target,
+                progress: swipe.progress
+            )
+        }
+        let segmentProgress = swipe.progress > 1 ? swipe.progress - 1 : swipe.progress
+        let borderAlpha = segmentProgress < CameraSwipe.releaseThreshold
+            ? 1 - segmentProgress / CameraSwipe.releaseThreshold
+            : (segmentProgress - CameraSwipe.releaseThreshold)
+                / (1 - CameraSwipe.releaseThreshold)
+        updateSelectedBorderAlpha(borderAlpha)
+        if swipe.progress >= 1 + CameraSwipe.releaseThreshold,
+           let deepTargetTileID = swipe.deepTargetTileID,
+           let tile = allSessionTiles.first(where: {
+               $0.session.tileID == deepTargetTileID
+           })
+        {
+            workspaceClusters.forEach { $0.selectionBorderAlpha = 1 }
+            tile.isSelected = true
+            tile.selectionBorderAlpha = borderAlpha
+        }
+        statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
+        spatialMinimapView.updateCameraBounds(sceneView.bounds)
+    }
+
+    private func updateSelectedBorderAlpha(_ alpha: CGFloat) {
+        workspaceClusters.forEach { $0.selectionBorderAlpha = 1 }
+        allSessionTiles.forEach {
+            $0.selectionBorderAlpha = 1
+            if currentWorkspace == nil { $0.isSelected = false }
+        }
+        if currentWorkspace == nil, workspaceClusters.indices.contains(selectedIndex) {
+            workspaceClusters[selectedIndex].selectionBorderAlpha = alpha
+        } else if activeSessionTiles.indices.contains(selectedIndex) {
+            activeSessionTiles[selectedIndex].selectionBorderAlpha = alpha
+        }
+    }
+
+    func selectedBorderAlphaForTesting() -> CGFloat? {
+        if currentWorkspace == nil, workspaceClusters.indices.contains(selectedIndex) {
+            return workspaceClusters[selectedIndex].selectionBorderAlpha
+        }
+        guard activeSessionTiles.indices.contains(selectedIndex) else { return nil }
+        return activeSessionTiles[selectedIndex].selectionBorderAlpha
+    }
+
+    @discardableResult
+    func previewCameraSwipeForTesting(
+        _ direction: CameraSwipeDirection,
+        progress: CGFloat,
+        pointerLocation: NSPoint? = nil
+    ) -> Bool {
+        guard prepareForCameraSwipePreview() else { return false }
+        var swipe = DirectTrackpadSwipe(
+            fingerCount: 3,
+            start: .zero,
+            direction: direction,
+            sourceCameraBounds: sceneView.bounds,
+            pointerLocation: pointerLocation,
+            sourceSelectedIndex: selectedIndex,
+            progress: max(0, progress)
+        )
+        swipe.targetCameraBounds = interactiveCameraTarget(
+            for: direction,
+            pointerLocation: pointerLocation,
+            targetSelectedIndex: &swipe.targetSelectedIndex
+        )
+        prepareDeepCameraTarget(for: &swipe)
+        swipe.progress = min(swipe.deepTargetCameraBounds == nil ? 1 : 2, swipe.progress)
+        guard let source = swipe.sourceCameraBounds,
+              let target = swipe.targetCameraBounds
+        else { return false }
+        applyInteractiveCameraPreview(swipe: swipe, source: source, target: target)
+        directTrackpadSwipe = swipe
+        return true
+    }
+
+    func finishCameraSwipeForTesting() {
+        finishInteractiveTrackpadSwipe()
+    }
+
+    private func prepareForCameraSwipePreview() -> Bool {
+        guard presentedOverlay == nil,
+              commandPalette == nil,
+              mapEditOverlay == nil,
+              spatialDrag == nil
+        else { return false }
+        return prepareForInteractionIntent()
+    }
+
+    private func finishInteractiveTrackpadSwipe() {
+        guard let swipe = directTrackpadSwipe else { return }
+        directTrackpadSwipe = nil
+        suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
+            + CameraSwipe.duplicateSuppressionDuration
+        guard swipe.progress >= CameraSwipe.releaseThreshold,
+              swipe.direction != nil
+        else {
+            restoreInteractiveTrackpadSwipe(swipe)
+            return
+        }
+        updateSelectedBorderAlpha(1)
+        guard commitInteractiveTrackpadSwipe(swipe) else {
+            restoreInteractiveTrackpadSwipe(swipe)
+            return
+        }
+    }
+
+    private func commitInteractiveTrackpadSwipe(
+        _ swipe: DirectTrackpadSwipe
+    ) -> Bool {
+        guard let direction = swipe.direction else { return false }
+        if direction == .down,
+           swipe.progress >= 1 + CameraSwipe.releaseThreshold,
+           let workspaceID = swipe.deepTargetWorkspaceID,
+           let tileID = swipe.deepTargetTileID,
+           let target = swipe.deepTargetCameraBounds
+        {
+            guard prepareForCameraSwipePreview() else { return false }
+            currentWorkspace = workspaceID
+            let sessions = activeSessionTiles
+            guard let index = sessions.firstIndex(where: {
+                $0.session.tileID == tileID
+            }) else { return false }
+            selectedIndex = index
+            focusedIndex = index
+            clearLabelBuffer()
+            updateSelection()
+            moveCamera(
+                to: target,
+                duration: Motion.terminalSwitchDuration
+            )
+            return true
+        }
+        if direction == .down {
+            guard prepareForCameraSwipePreview() else { return false }
+            return zoomInOneLevel()
+        }
+        if currentWorkspace == nil,
+           (direction == .left || direction == .right),
+           let targetSelectedIndex = swipe.targetSelectedIndex,
+           let target = swipe.targetCameraBounds
+        {
+            selectedIndex = targetSelectedIndex
+            updateSelection()
+            moveCamera(
+                to: target,
+                duration: Motion.terminalSwitchDuration,
+                targetAlpha: 1
+            )
+            return true
+        }
+        return performCameraSwipe(direction, fingerCount: 3)
+    }
+
+    private func cancelInteractiveTrackpadSwipe() {
+        guard let swipe = directTrackpadSwipe else { return }
+        directTrackpadSwipe = nil
+        restoreInteractiveTrackpadSwipe(swipe)
+    }
+
+    private func restoreInteractiveTrackpadSwipe(_ swipe: DirectTrackpadSwipe) {
+        if selectedIndex != swipe.sourceSelectedIndex {
+            selectedIndex = swipe.sourceSelectedIndex
+            updateSelection()
+        }
+        updateSelectedBorderAlpha(1)
+        guard let source = swipe.sourceCameraBounds else { return }
+        moveCamera(to: source, duration: CameraSwipe.cancelDuration)
+    }
+
+    private func prepareDeepCameraTarget(for swipe: inout DirectTrackpadSwipe) {
+        guard swipe.direction == .down,
+              currentWorkspace == nil,
+              let workspaceIndex = swipe.targetSelectedIndex,
+              workspaceClusters.indices.contains(workspaceIndex)
+        else { return }
+        let workspaceID = workspaceClusters[workspaceIndex].workspaceID
+        guard let tile = activeSessionTiles(for: workspaceID).first(where: {
+            $0.renderingMode != .newTerminal
+        }) else { return }
+        swipe.deepTargetWorkspaceID = workspaceID
+        swipe.deepTargetTileID = tile.session.tileID
+        swipe.deepTargetCameraBounds = cameraBounds(
+            for: workspaceID,
+            tileID: tile.session.tileID,
+            focusTerminal: true
+        )
+    }
+
+    private func interactiveCameraTarget(
+        for direction: CameraSwipeDirection,
+        pointerLocation: NSPoint?,
+        targetSelectedIndex: inout Int?
+    ) -> NSRect? {
+        switch direction {
+        case .up:
+            if focusedIndex != nil, let currentWorkspace {
+                return cameraBounds(
+                    for: currentWorkspace,
+                    tileID: nil,
+                    focusTerminal: false
+                )
+            }
+            if currentWorkspace != nil { return overviewCameraBounds() }
+            return nil
+        case .down:
+            let targetIndex = mapTileIndexUnderPointer(at: pointerLocation) ?? selectedIndex
+            targetSelectedIndex = targetIndex
+            if currentWorkspace == nil,
+               workspaceClusters.indices.contains(targetIndex)
+            {
+                return cameraBounds(
+                    for: workspaceClusters[targetIndex].workspaceID,
+                    tileID: nil,
+                    focusTerminal: false
+                )
+            }
+            let sessions = activeSessionTiles
+            guard let currentWorkspace, sessions.indices.contains(targetIndex) else {
+                return nil
+            }
+            return cameraBounds(
+                for: currentWorkspace,
+                tileID: sessions[targetIndex].session.tileID,
+                focusTerminal: true
+            )
+        case .left, .right:
+            let offset = direction == .left ? 1 : -1
+            if let focusedIndex {
+                let sessions = activeSessionTiles
+                guard sessions.count > 1 else { return nil }
+                let targetIndex = (focusedIndex + offset + sessions.count) % sessions.count
+                targetSelectedIndex = targetIndex
+                return currentWorkspace.flatMap { workspaceID in
+                    cameraBounds(
+                        for: workspaceID,
+                        tileID: sessions[targetIndex].session.tileID,
+                        focusTerminal: true
+                    )
+                }
+            }
+            if let currentWorkspace,
+               workspaces.count > 1,
+               let workspaceIndex = workspaces.firstIndex(where: { $0.id == currentWorkspace })
+            {
+                let targetIndex = (workspaceIndex + offset + workspaces.count) % workspaces.count
+                return cameraBounds(
+                    for: workspaces[targetIndex].id,
+                    tileID: nil,
+                    focusTerminal: false
+                )
+            }
+            guard let targetIndex = mapSelectionTargetIndex(for: direction),
+                  let targetFrame = mapTileFrame(at: targetIndex)
+            else { return nil }
+            targetSelectedIndex = targetIndex
+            let size = sceneView.bounds.size
+            return NSRect(
+                x: targetFrame.midX - size.width / 2,
+                y: targetFrame.midY - size.height / 2,
+                width: size.width,
+                height: size.height
+            )
+        }
+    }
+
+    private func mapSelectionTargetIndex(
+        for direction: CameraSwipeDirection
+    ) -> Int? {
+        let horizontal: Int
+        let vertical: Int
+        switch direction {
+        case .left: (horizontal, vertical) = (1, 0)
+        case .right: (horizontal, vertical) = (-1, 0)
+        case .up: (horizontal, vertical) = (0, -1)
+        case .down: (horizontal, vertical) = (0, 1)
+        }
+        let columns = activeColumns
+        let row = selectedIndex / columns + vertical
+        let column = selectedIndex % columns + horizontal
+        guard row >= 0, column >= 0, column < columns else { return nil }
+        let target = row * columns + column
+        return target < activeCount ? target : nil
+    }
+
+    private func mapTileFrame(at index: Int) -> NSRect? {
+        if currentWorkspace == nil {
+            guard workspaceClusters.indices.contains(index) else { return nil }
+            return workspaceClusters[index].frame
+        }
+        let sessions = activeSessionTiles
+        guard sessions.indices.contains(index) else { return nil }
+        return sessions[index].convert(sessions[index].bounds, to: sceneView)
+    }
+
+    private func overviewCameraBounds() -> NSRect {
+        applyingCameraMagnification(to: cameraBounds(
+            for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: 0),
+            viewport: overviewViewport(),
+            alignTargetToTop: true
+        ))
+    }
+
+    private func interpolatedCameraBounds(
+        from source: NSRect,
+        to target: NSRect,
+        progress: CGFloat
+    ) -> NSRect {
+        let width = source.width * pow(target.width / source.width, progress)
+        let height = source.height * pow(target.height / source.height, progress)
+        let centerX = source.midX + (target.midX - source.midX) * progress
+        let centerY = source.midY + (target.midY - source.midY) * progress
+        return NSRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
+    private func indirectTouches(in event: NSEvent) -> [NSTouch] {
+        event.touches(matching: .touching, in: self).filter {
+            $0.type == .indirect
+        }
+    }
+
+    private func touchCenter(_ touches: [NSTouch]) -> NSPoint {
+        let total = touches.reduce(NSPoint.zero) { partial, touch in
+            NSPoint(
+                x: partial.x + touch.normalizedPosition.x,
+                y: partial.y + touch.normalizedPosition.y
+            )
+        }
+        let count = CGFloat(touches.count)
+        return NSPoint(x: total.x / count, y: total.y / count)
+    }
+
+    private func cameraSwipeDirection(
+        horizontal: CGFloat,
+        vertical: CGFloat,
+        threshold: CGFloat
+    ) -> CameraSwipeDirection? {
+        guard max(abs(horizontal), abs(vertical)) >= threshold else { return nil }
+        if abs(horizontal) > abs(vertical) {
+            return horizontal > 0 ? .right : .left
+        }
+        return vertical > 0 ? .down : .up
+    }
+
+    @discardableResult
+    func performCameraSwipe(
+        _ direction: CameraSwipeDirection,
+        fingerCount: Int,
+        pointerLocation: NSPoint? = nil
+    ) -> Bool {
+        guard fingerCount == 2 || fingerCount == 3,
+              presentedOverlay == nil,
+              commandPalette == nil,
+              mapEditOverlay == nil,
+              spatialDrag == nil
+        else { return false }
+        if fingerCount == 2, focusedIndex != nil { return false }
+        guard prepareForInteractionIntent() else { return false }
+
+        if fingerCount == 2 {
+            return moveMapSelectionForSwipe(direction)
+        }
+
+        switch direction {
+        case .up:
+            return zoomOutOneLevel()
+        case .down:
+            selectMapTileUnderPointer(at: pointerLocation)
+            return zoomInOneLevel()
+        case .left:
+            if focusedIndex != nil { return cycleFocusedTerminal(by: 1) }
+            if currentWorkspace != nil { return cycleFocusedWorkspace(by: 1) }
+            return moveMapSelectionForSwipe(.left)
+        case .right:
+            if focusedIndex != nil { return cycleFocusedTerminal(by: -1) }
+            if currentWorkspace != nil { return cycleFocusedWorkspace(by: -1) }
+            return moveMapSelectionForSwipe(.right)
+        }
+    }
+
+    private func mapTileIndexUnderPointer(at suppliedLocation: NSPoint?) -> Int? {
+        guard focusedIndex == nil,
+              let point = suppliedLocation ?? window?.mouseLocationOutsideOfEventStream
+        else { return nil }
+        if currentWorkspace == nil {
+            return workspaceClusters.firstIndex(where: { cluster in
+                cluster.convert(cluster.bounds, to: nil).contains(point)
+            })
+        }
+        return activeSessionTiles.firstIndex(where: { tile in
+            tile.convert(tile.bounds, to: nil).contains(point)
+        })
+    }
+
+    private func selectMapTileUnderPointer(at suppliedLocation: NSPoint?) {
+        guard let index = mapTileIndexUnderPointer(at: suppliedLocation),
+              index != selectedIndex
+        else { return }
+        selectedIndex = index
+        updateSelection()
+    }
+
+    private func moveMapSelectionForSwipe(_ direction: CameraSwipeDirection) -> Bool {
+        let priorIndex = selectedIndex
+        let moved: Bool
+        switch direction {
+        case .left:
+            moved = moveSelection(horizontal: 1, vertical: 0)
+        case .right:
+            moved = moveSelection(horizontal: -1, vertical: 0)
+        case .up:
+            moved = moveSelection(horizontal: 0, vertical: -1)
+        case .down:
+            moved = moveSelection(horizontal: 0, vertical: 1)
+        }
+        guard moved else { return false }
+        guard selectedIndex != priorIndex,
+              let targetFrame = selectedMapTileFrame()
+        else { return true }
+        let cameraSize = sceneView.bounds.size
+        let target = NSRect(
+            x: targetFrame.midX - cameraSize.width / 2,
+            y: targetFrame.midY - cameraSize.height / 2,
+            width: cameraSize.width,
+            height: cameraSize.height
+        )
+        beginSpatialMinimapAnimation(to: target, duration: Motion.terminalSwitchDuration)
+        moveCamera(to: target, duration: Motion.terminalSwitchDuration)
+        return true
+    }
+
+    private func selectedMapTileFrame() -> NSRect? {
+        if currentWorkspace == nil {
+            guard workspaceClusters.indices.contains(selectedIndex) else { return nil }
+            return workspaceClusters[selectedIndex].frame
+        }
+        let sessions = activeSessionTiles
+        guard sessions.indices.contains(selectedIndex) else { return nil }
+        return sessions[selectedIndex].convert(sessions[selectedIndex].bounds, to: sceneView)
+    }
+
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if event.keyCode == 53, modifiers.isEmpty, mapEditOverlay != nil {
+            dismissMapEditOverlay()
+            return
+        }
         if focusedIndex != nil { return }
         guard !isTransitioning else { return }
 
@@ -1327,6 +2465,20 @@ final class TerminalDeckView: NSView {
             return
         }
         super.keyUp(with: event)
+    }
+
+    private func showOverviewFromStatusBar() {
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isPeeking, prepareForInteractionIntent()
+        else { return }
+        let workspaceID = currentWorkspace
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = workspaceID.flatMap { id in
+            workspaceClusters.firstIndex(where: { $0.workspaceID == id })
+        } ?? min(selectedIndex, max(0, workspaceClusters.count - 1))
+        updateSelection()
+        moveCamera()
     }
 
     private func selectWorkspaceFromStatusBar(_ workspaceID: String) {
@@ -1735,13 +2887,20 @@ final class TerminalDeckView: NSView {
             tile.isSelected = false
             tile.isFocused = tile === focusedTile
         }
+        addTerminalTileView?.isSelected = false
+        addTerminalTileView?.isFocused = false
         if currentWorkspace != nil, sessions.indices.contains(selectedIndex) {
             sessions[selectedIndex].isSelected = true
         }
         needsDisplay = true
         refreshSpatialMinimap(cameraBounds: sceneView.bounds)
         refreshStatusBar()
-        if !isShuttingDown { refreshAvailableSessionsIfNeeded() }
+        if !isShuttingDown, let workspace = selectedWorkspaceRecord(),
+           let targetID = targetID(for: workspace.location),
+           let targetLocation = registeredTargetLocation(id: targetID)
+        {
+            refreshRegisteredTarget(targetID, at: targetLocation, force: false)
+        }
         // Camera motion is cosmetic. Keep AppKit's responder chain in lockstep
         // with the logical focused tile before, during, and after a zoom.
         restoreInputFocus()
@@ -1886,11 +3045,32 @@ final class TerminalDeckView: NSView {
         guard (0..<activeCount).contains(index), focusedIndex == nil,
               commandPalette == nil, !isTransitioning
         else { return }
+        if mapEditOverlay != nil, currentWorkspace == nil,
+           workspaceClusters.indices.contains(index),
+           workspaceClusters[index].renderingMode == .workspace
+        {
+            _ = enterWorkspaceDuringMapEdit(at: index)
+            return
+        }
         select(index)
         clearLabelBuffer()
 
         if currentWorkspace == nil {
             let cluster = workspaceClusters[index]
+            switch cluster.renderingMode {
+            case .newWorkspace:
+                beginInlineWorkspaceCreation(in: cluster)
+                return
+            case .ghost:
+                guard let (targetID, record) = ghostWorkspaceTargets[cluster.workspaceID],
+                      let location = registeredTargetLocation(id: targetID)
+                else { return }
+                dismissMapEditOverlay(restorePreviousView: false)
+                restoreNativeWorkspace(record, at: location)
+                return
+            case .workspace:
+                break
+            }
             currentWorkspace = cluster.workspaceID
             selectedIndex = 0
             if cluster.sessions.count == 1 {
@@ -1899,6 +3079,11 @@ final class TerminalDeckView: NSView {
             updateSelection()
             moveCamera()
         } else {
+            let tile = activeSessionTiles[index]
+            if tile.renderingMode == .newTerminal {
+                beginInlineTerminalCreation(in: tile)
+                return
+            }
             focusedIndex = index
             updateSelection()
             moveCamera()
@@ -1997,6 +3182,277 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
+    func toggleTargetSessions(anchor: NSRect? = nil, selecting sessionID: String? = nil) {
+        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if targetSessionsView != nil {
+            dismissTargetSessions()
+            return
+        }
+        if commandPalette != nil { dismissCommandPalette() }
+        let view = TargetSessionsView(frame: bounds)
+        view.anchorRect = anchor
+        view.onDismiss = { [weak self] in self?.dismissTargetSessions() }
+        view.onActivate = { [weak self] item in self?.activateTargetSessionBrowserItem(item) }
+        view.onCloseWorkspace = { [weak self] item in self?.closeTargetWorkspace(item) }
+        view.onKillSession = { [weak self] item in self?.killTargetSession(item) }
+        view.onAddWorkspace = { [weak self] in self?.beginSharedWorkspaceRegistration() }
+        view.onUseComputer = { [weak self] in self?.beginUseAnotherComputer() }
+        view.onRemoveTarget = { [weak self] id in self?.confirmRemoveTargetMachine(id) }
+        targetSessionsView = view
+        addSubview(view, positioned: .above, relativeTo: statusBarView)
+        refreshTargetSessionsView()
+        if let sessionID { view.selectSession(sessionID) }
+        window?.makeFirstResponder(view)
+    }
+
+    private func dismissTargetSessions() {
+        targetSessionsView?.removeFromSuperview()
+        targetSessionsView = nil
+        restoreInputFocus()
+    }
+
+    private func refreshTargetSessionsView() {
+        guard let view = targetSessionsView else { return }
+        var items: [TargetSessionBrowserItem] = []
+        for target in registeredTargetLocations() {
+            let discovery = targetDiscoveries[target.id] ?? TargetDiscovery(
+                state: .inactive, sessions: [], workspaces: [], checkedAt: .distantPast, error: nil
+            )
+            let detail: String
+            if let error = discovery.error {
+                detail = "Showing the last result · \(error)"
+            } else if target.id == "local" {
+                detail = "Local computer"
+            } else {
+                detail = "Connected over SSH"
+            }
+            items.append(TargetSessionBrowserItem(
+                kind: .target,
+                targetID: target.id,
+                workspaceID: nil,
+                sessionID: nil,
+                title: target.id == "local" ? "This Mac" : target.name,
+                detail: detail,
+                state: discovery.state
+            ))
+            let activeSessions = discovery.sessions
+                .filter { $0.state == "running" || $0.state == "created" }
+                .sorted { $0.updatedAtMs > $1.updatedAtMs }
+            let knownWorkspaceIDs = Set(discovery.workspaces.map(\.id))
+            for workspace in discovery.workspaces.sorted(by: {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }) {
+                items.append(TargetSessionBrowserItem(
+                    kind: .workspace,
+                    targetID: target.id,
+                    workspaceID: workspace.id,
+                    sessionID: nil,
+                    title: workspace.name,
+                    detail: workspace.rootDirectory,
+                    state: discovery.state
+                ))
+                for session in activeSessions where session.workspaceId == workspace.id {
+                    items.append(targetSessionBrowserItem(
+                        session,
+                        targetID: target.id,
+                        parentWorkspaceID: workspace.id,
+                        state: discovery.state
+                    ))
+                }
+            }
+            let unassigned = activeSessions.filter {
+                $0.workspaceId.map { !knownWorkspaceIDs.contains($0) } ?? true
+            }
+            if !unassigned.isEmpty {
+                items.append(TargetSessionBrowserItem(
+                    kind: .workspace,
+                    targetID: target.id,
+                    workspaceID: nil,
+                    sessionID: nil,
+                    title: "Unassigned",
+                    detail: "Sessions without a discovered workspace",
+                    state: discovery.state
+                ))
+                items += unassigned.map {
+                    targetSessionBrowserItem(
+                        $0,
+                        targetID: target.id,
+                        parentWorkspaceID: nil,
+                        state: discovery.state
+                    )
+                }
+            }
+        }
+        view.items = items
+    }
+
+    private func targetSessionBrowserItem(
+        _ session: AvailableTerminalSession,
+        targetID: String,
+        parentWorkspaceID: String?,
+        state: TargetDiscovery.State
+    ) -> TargetSessionBrowserItem {
+        let targetLocation = registeredTargetLocation(id: targetID)
+        let tile = allSessionTiles.first {
+            $0.session.id == session.id
+                && $0.session.workspaceID == session.workspaceId
+                && $0.session.location.machineID == targetLocation?.machineID
+        }
+        let available = AvailableSessionItem(
+            session: session,
+            attachmentState: tile.map {
+                terminalViewerIsAttached($0.session) ? .attached : .detached
+            } ?? .detached,
+            localClientID: tile?.session.viewerClientID
+        )
+        let action: TargetSessionBrowserItem.SessionAction
+        let connection: String
+        if available.canTakeControl {
+            action = .takeControl
+            connection = "Viewing · \(session.clients.count) connected"
+        } else if available.isAttached {
+            action = .detach
+            connection = available.hasControl ? "You control" : "Attached"
+        } else {
+            action = .attach
+            connection = "Not attached"
+        }
+        return TargetSessionBrowserItem(
+            kind: .session,
+            targetID: targetID,
+            workspaceID: session.workspaceId,
+            sessionID: session.id,
+            title: session.name ?? session.id,
+            detail: "\(connection) · \(session.workingDirectory)",
+            state: state,
+            sessionAction: action,
+            parentWorkspaceID: parentWorkspaceID
+        )
+    }
+
+    private func activateTargetSessionBrowserItem(_ item: TargetSessionBrowserItem) {
+        guard let target = registeredTargetLocations().first(where: { $0.id == item.targetID }),
+              let discovery = targetDiscoveries[item.targetID]
+        else { return }
+        switch item.kind {
+        case .target:
+            refreshRegisteredTarget(target.id, at: target.location, force: true)
+        case .workspace:
+            guard let id = item.workspaceID,
+                  let record = discovery.workspaces.first(where: { $0.id == id }) else { return }
+            dismissTargetSessions()
+            restoreNativeWorkspace(record, at: target.location, opensSessions: false)
+        case .session:
+            guard let sessionID = item.sessionID else { return }
+            let workspaceID = item.workspaceID
+            if let workspace = workspaceID.flatMap({ id in workspaces.first(where: { $0.id == id }) }) {
+                dismissTargetSessions()
+                switch item.sessionAction {
+                case .takeControl:
+                    takeControlOfAvailableSession(sessionID, in: workspace.id)
+                case .detach:
+                    disconnectAvailableSession(sessionID, in: workspace.id)
+                case .attach, nil:
+                    reconnectAvailableSession(sessionID, to: workspace.id)
+                }
+            } else if let workspaceID,
+                      let record = discovery.workspaces.first(where: { $0.id == workspaceID })
+            {
+                // Attaching is explicit; opening its native workspace is the
+                // required preceding scene action, never a discovery side effect.
+                dismissTargetSessions()
+                restoreNativeWorkspace(record, at: target.location, opensSessions: false)
+                reconnectAvailableSession(sessionID, to: record.id)
+            }
+        }
+    }
+
+    private func beginSharedWorkspaceRegistration() {
+        dismissTargetSessions()
+        registersSharedWorkspaceOnly = true
+        beginNewWorkspaceFlow(from: .sharedWorkspaces)
+    }
+
+    private func beginUseAnotherComputer() {
+        dismissTargetSessions()
+        showRegisterTargetPalette(returnToSharedWorkspaces: true)
+    }
+
+    private func closeTargetWorkspace(_ item: TargetSessionBrowserItem) {
+        guard item.kind == .workspace,
+              let workspaceID = item.workspaceID,
+              let target = registeredTargetLocations().first(where: { $0.id == item.targetID }),
+              let discovery = targetDiscoveries[item.targetID],
+              let nativeRecord = discovery.workspaces.first(where: { $0.id == workspaceID })
+        else { return }
+        let sessions = discovery.sessions.filter { $0.workspaceId == workspaceID }
+        dismissTargetSessions()
+        bufferCloseWorkspace(
+            nativeRecord,
+            targetID: target.id,
+            location: target.location,
+            discoveredSessions: sessions
+        )
+    }
+
+    private func killTargetSession(_ item: TargetSessionBrowserItem) {
+        guard item.kind == .session,
+              let sessionID = item.sessionID,
+              let target = registeredTargetLocations().first(where: { $0.id == item.targetID }),
+              let discovery = targetDiscoveries[item.targetID],
+              let discovered = discovery.sessions.first(where: { $0.id == sessionID })
+        else { return }
+        dismissTargetSessions()
+        if let workspaceID = item.workspaceID,
+           let workspace = workspaces.first(where: { $0.id == workspaceID })
+        {
+            killAvailableSession(sessionID, in: workspace.id)
+            return
+        }
+        let nativeRecord = item.workspaceID.flatMap { workspaceID in
+            discovery.workspaces.first { $0.id == workspaceID }
+        }
+        let session = TerminalSession(
+            id: discovered.id,
+            label: "session",
+            workspaceID: item.workspaceID ?? "unassigned",
+            workspace: nativeRecord?.name ?? "Unassigned",
+            name: discovered.name ?? "session",
+            launch: .loginShell,
+            workingDirectory: discovered.workingDirectory,
+            workspaceRoot: nativeRecord?.rootDirectory ?? discovered.workingDirectory,
+            sshHost: target.location.sshHost,
+            startsSessionIfMissing: false,
+            state: .detached
+        )
+        sessionBackend.remove(session)
+        let sessions = discovery.sessions.filter { $0.id != sessionID }
+        targetDiscoveries[item.targetID] = TargetDiscovery(
+            state: discovery.state == .unreachable
+                ? .unreachable
+                : (sessions.isEmpty ? .inactive : .online),
+            sessions: sessions,
+            workspaces: discovery.workspaces,
+            checkedAt: discovery.checkedAt,
+            error: discovery.error
+        )
+        availableSessionsByMachine[target.location.machineID]?.removeAll { $0.id == sessionID }
+        targetDiscoveryDidChange()
+    }
+
+    private func confirmRemoveTargetMachine(_ id: String) {
+        guard let target = targetMachines.first(where: { $0.id == id }) else { return }
+        dismissTargetSessions()
+        presentConfirmation(
+            heading: "Stop using \(target.displayName)?",
+            message: "This computer will disappear from Sessions and will no longer be checked for sessions.",
+            consequence: "Its workspaces and sessions keep running. You can use the computer again later.",
+            confirmTitle: "Stop using computer"
+        ) { [weak self] in
+            self?.removeTargetMachine(id)
+        }
+    }
+
     func toggleAvailableSessions(
         returnToCommands: Bool = false,
         selecting sessionID: String? = nil
@@ -2066,13 +3522,22 @@ final class TerminalDeckView: NSView {
             view.selectSession(sessionID)
             availableSessionsPendingSelectionID = nil
         }
-        view.isLoading = availableSessionsLoading.contains(machineID)
+        view.isLoading = targetID(for: workspace.location).map {
+            targetDiscoveryInFlight.contains($0)
+        } ?? false
         view.errorMessage = availableSessionsErrors[machineID]
     }
 
     private func availableSessionItems(for workspace: WorkspaceRecord) -> [AvailableSessionItem] {
-        let discovered = (availableSessionsByMachine[workspace.location.machineID] ?? [])
-            .filter {
+        let discovered: [AvailableTerminalSession]
+        if let targetID = targetID(for: workspace.location) {
+            discovered = targetDiscoveries[targetID]?.sessions
+                ?? availableSessionsByMachine[workspace.location.machineID]
+                ?? []
+        } else {
+            discovered = []
+        }
+        let matchingDiscovered = discovered.filter {
                 ($0.state == "running" || $0.state == "created")
                     && ($0.workspaceId == workspace.id
                         || ($0.workspaceId == nil
@@ -2082,7 +3547,7 @@ final class TerminalDeckView: NSView {
                             )))
             }
         var discoveredByID: [String: AvailableTerminalSession] = [:]
-        for session in discovered { discoveredByID[session.id] = session }
+        for session in matchingDiscovered { discoveredByID[session.id] = session }
 
         let represented = allSessionTiles.compactMap { tile -> AvailableSessionItem? in
             guard tile.session.workspaceID == workspace.id else { return nil }
@@ -2123,7 +3588,7 @@ final class TerminalDeckView: NSView {
         }
         let representedIDs = Set(represented.map { $0.session.id })
             .union(disconnectedTiles.map { $0.session.id })
-        let unrepresented = discovered.compactMap { session -> AvailableSessionItem? in
+        let unrepresented = matchingDiscovered.compactMap { session -> AvailableSessionItem? in
             guard !representedIDs.contains(session.id) else { return nil }
             return AvailableSessionItem(
                 session: session,
@@ -2163,47 +3628,21 @@ final class TerminalDeckView: NSView {
             [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if let workspace = self.selectedWorkspaceRecord() {
-                    self.restoreNativeWorkspaces(from: workspace.location)
-                }
-                self.refreshAvailableSessionsIfNeeded(force: true)
+                self.refreshRegisteredTargets()
             }
         }
         availableSessionsRefreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    private func refreshAvailableSessionsIfNeeded(force: Bool = false) {
-        guard let workspace = selectedWorkspaceRecord() else { return }
-        refreshAvailableSessions(for: workspace, force: force)
-    }
-
     private func refreshAvailableSessions(for workspace: WorkspaceRecord, force: Bool) {
-        let machineID = workspace.location.machineID
-        guard !availableSessionsLoading.contains(machineID) else { return }
-        if !force, let refreshedAt = availableSessionsLastRefresh[machineID],
-           Date().timeIntervalSince(refreshedAt) < availableSessionsRefreshInterval
-        {
-            return
-        }
-
-        availableSessionsLoading.insert(machineID)
-        availableSessionsErrors.removeValue(forKey: machineID)
+        // A removed SSH profile may still back a persisted scene workspace, but
+        // it is no longer eligible for discovery.
+        guard let targetID = targetID(for: workspace.location),
+              let targetLocation = registeredTargetLocation(id: targetID)
+        else { return }
+        refreshRegisteredTarget(targetID, at: targetLocation, force: force)
         refreshAvailableSessionsPanel()
-        sessionBackend.listSessions(at: workspace.location) { [weak self] result in
-            guard let self else { return }
-            self.availableSessionsLoading.remove(machineID)
-            self.availableSessionsLastRefresh[machineID] = Date()
-            switch result {
-            case let .success(sessions):
-                self.availableSessionsByMachine[machineID] = sessions
-                self.availableSessionsErrors.removeValue(forKey: machineID)
-            case let .failure(error):
-                self.availableSessionsErrors[machineID] = error.localizedDescription
-            }
-            self.refreshAvailableSessionsPanel()
-            self.refreshStatusBar()
-        }
     }
 
     private func reconnectAvailableSession(_ sessionID: String, to workspaceID: String) {
@@ -2350,7 +3789,22 @@ final class TerminalDeckView: NSView {
         case .workspaceOverview: [.workspaceOverview]
         case .workspace: [.workspace, .workspaceOverview]
         case .terminal: [.terminal, .workspace, .workspaceOverview]
+        case .newLocation, .recentLocations: []
         }
+    }
+
+    private var currentInteractionLevel: InteractionIntentPolicy.Level {
+        if focusedIndex != nil { return .terminal }
+        if currentWorkspace != nil { return .workspace }
+        return .overview
+    }
+
+    private func interactionRule(
+        for intent: InteractionIntentPolicy.Intent,
+        at level: InteractionIntentPolicy.Level? = nil
+    ) -> InteractionIntentPolicy.Rule? {
+        let policy = interactionPolicySession ?? interactionIntentEngine.snapshot()
+        return policy.rule(for: intent, at: level ?? currentInteractionLevel)
     }
 
     private var commandPaletteContext: String {
@@ -2361,7 +3815,643 @@ final class TerminalDeckView: NSView {
             "workspace · \(selectedWorkspace() ?? "unknown")"
         case .terminal:
             "terminal · \(selectedSession()?.name ?? "unknown") · \(selectedWorkspace() ?? "workspace")"
+        case .newLocation, .recentLocations:
+            "workspace location"
         }
+    }
+
+    func toggleMapEditOverlay() {
+        if mapEditOverlay != nil {
+            dismissMapEditOverlay()
+            return
+        }
+        guard prepareForInteractionIntent(),
+              let rule = interactionRule(for: .edit),
+              rule.panel == .none, rule.effect == .none
+        else { return }
+        presentMapEditOverlay(cameraPolicy: rule.camera)
+    }
+
+    @discardableResult
+    private func presentMapEditOverlay(
+        cameraPolicy: InteractionIntentPolicy.Camera,
+        onPresented: (@MainActor () -> Void)? = nil,
+        onReady: (@MainActor () -> Void)? = nil
+    ) -> Bool {
+        guard !isTransitioning, !isPeeking,
+              presentedOverlay == nil, commandPalette == nil, targetSessionsView == nil,
+              availableSessionsView == nil
+        else { return false }
+
+        if interactionPolicySession == nil {
+            interactionPolicySession = interactionIntentEngine.snapshot()
+        }
+        if mapEditReturnState == nil {
+            mapEditReturnState = currentMapEditReturnState()
+        }
+        if focusedIndex != nil {
+            focusedIndex = nil
+            updateSelection()
+        }
+
+        let actions: [MapEditAction]
+        var cardActions: [MapEditCardAction] = []
+        let movesToWorkspaceMap = currentWorkspace != nil && selectedWorkspaceID() != nil
+        if movesToWorkspaceMap {
+            actions = [
+                MapEditAction(id: "rename", title: "✎ Rename workspace", detail: "change its label"),
+                MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
+            ]
+            installEditTerminalTile()
+            updateWorldGeometry()
+        } else {
+            actions = []
+            let attachedWorkspaceIDs = Set(workspaces.map(\.id))
+            let ghosts = targetDiscoveries.flatMap { targetID, discovery in
+                discovery.workspaces.filter { !attachedWorkspaceIDs.contains($0.id) }.map {
+                    (targetID, $0)
+                }
+            }
+            for ghost in ghosts {
+                let id = "__ghost__\(ghost.0)__\(ghost.1.id)"
+                let cluster = WorkspaceClusterView(
+                    workspaceID: id,
+                    workspace: ghost.1.name,
+                    label: "gh",
+                    renderingMode: .ghost
+                )
+                ghostWorkspaceTargets[id] = ghost
+                installEditWorkspaceCluster(cluster)
+            }
+            let addCluster = WorkspaceClusterView(
+                workspaceID: "__new_workspace__",
+                workspace: "New workspace",
+                label: "+",
+                renderingMode: .newWorkspace
+            )
+            addWorkspaceClusterView = addCluster
+            installEditWorkspaceCluster(addCluster)
+            updateWorldGeometry()
+
+            for cluster in workspaceClusters where cluster.renderingMode == .workspace {
+                let frame = cluster.convert(cluster.bounds, to: self)
+                cardActions.append(MapEditCardAction(
+                    frame: NSRect(x: frame.maxX - 30, y: frame.minY + 10, width: 22, height: 22),
+                    action: MapEditAction(
+                        id: "closeWorkspace:\(cluster.workspaceID)",
+                        title: "Close workspace",
+                        detail: "confirm before stop"
+                    )
+                ))
+            }
+        }
+
+        let overlay = MapEditOverlayView(frame: bounds, actions: actions, cardActions: cardActions)
+        overlay.layer?.zPosition = 1_500
+        overlay.onDismiss = { [weak self] in self?.dismissMapEditOverlay() }
+        overlay.onAction = { [weak self] action in self?.runMapEditAction(action) }
+        overlay.onShortcut = { [weak self] action in self?.performShortcut(action) ?? false }
+        mapEditOverlay = overlay
+        addSubview(overlay, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(overlay)
+        onPresented?()
+        if cameraPolicy != .none {
+            moveCameraForPolicy(cameraPolicy, to: currentCameraBounds()) {
+                [weak self, weak overlay] in
+                guard let self, let overlay, self.mapEditOverlay === overlay else { return }
+                onReady?()
+            }
+        } else {
+            onReady?()
+        }
+        return true
+    }
+
+    private func selectMapEditTarget(_ target: InteractionIntentPolicy.Target) {
+        let index: Int?
+        switch target {
+        case .addWorkspace:
+            index = workspaceClusters.firstIndex { $0.renderingMode == .newWorkspace }
+        case .addTerminal:
+            index = activeSessionTiles.firstIndex { $0.renderingMode == .newTerminal }
+        case .currentWorkspace, .currentTerminal:
+            return
+        }
+        guard let index else { return }
+        select(index)
+    }
+
+    private func activateMapEditCreationTarget(
+        _ target: InteractionIntentPolicy.Target,
+        cameraPolicy: InteractionIntentPolicy.Camera
+    ) {
+        guard mapEditOverlay != nil, addWorkspaceCardView == nil,
+              addTerminalCardView == nil
+        else { return }
+        switch target {
+        case .addWorkspace:
+            guard let cluster = workspaceClusters.first(where: {
+                $0.renderingMode == .newWorkspace
+            }) else { return }
+            selectMapEditTarget(target)
+            beginInlineWorkspaceCreation(in: cluster, cameraPolicy: cameraPolicy)
+        case .addTerminal:
+            guard let tile = activeSessionTiles.first(where: {
+                $0.renderingMode == .newTerminal
+            }) else { return }
+            selectMapEditTarget(target)
+            beginInlineTerminalCreation(in: tile, cameraPolicy: cameraPolicy)
+        case .currentWorkspace, .currentTerminal:
+            return
+        }
+    }
+
+    private func installEditTerminalTile() {
+        guard addTerminalTileView == nil,
+              let workspace = selectedWorkspaceRecord()
+        else { return }
+        let session = TerminalSession(
+            id: "__new_terminal__",
+            tileID: "__new_terminal_tile__",
+            label: "+",
+            workspaceID: workspace.id,
+            workspace: workspace.name,
+            name: "New terminal",
+            launch: .loginShell,
+            workingDirectory: workspace.workingDirectory,
+            state: .stopped
+        )
+        let tile = TerminalTileView(session: session, renderingMode: .newTerminal)
+        tile.onSelect = { [weak self, weak tile] _ in
+            guard let self, let tile,
+                  let index = self.activeSessionTiles.firstIndex(where: { $0 === tile })
+            else { return }
+            self.activate(index)
+        }
+        tile.onActivate = { [weak self, weak tile] _ in
+            guard let self, let tile,
+                  let index = self.activeSessionTiles.firstIndex(where: { $0 === tile })
+            else { return }
+            self.activate(index)
+        }
+        addTerminalTileView = tile
+    }
+
+    private func installEditWorkspaceCluster(_ cluster: WorkspaceClusterView) {
+        cluster.onSelect = { [weak self, weak cluster] in
+            guard let self, let cluster,
+                  let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
+            else { return }
+            self.activate(index)
+        }
+        cluster.onActivate = { [weak self, weak cluster] in
+            guard let self, let cluster,
+                  let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
+            else { return }
+            self.activate(index)
+        }
+        workspaceClusters.append(cluster)
+        sceneView.addSubview(cluster)
+    }
+
+    private func currentMapEditReturnState() -> MapEditReturnState {
+        let sessions = activeSessionTiles
+        let selectedTileID = sessions.indices.contains(selectedIndex)
+            ? sessions[selectedIndex].session.tileID
+            : nil
+        let focusedTileID = focusedIndex.flatMap { index in
+            sessions.indices.contains(index) ? sessions[index].session.tileID : nil
+        }
+        return MapEditReturnState(
+            workspaceID: currentWorkspace,
+            overviewWorkspaceID: currentWorkspace == nil ? selectedWorkspaceID() : nil,
+            selectedTileID: selectedTileID,
+            focusedTileID: focusedTileID
+        )
+    }
+
+    private func dismissMapEditOverlay(restorePreviousView: Bool = true) {
+        let returnState = mapEditReturnState
+        mapEditReturnState = nil
+        interactionPolicySession = nil
+        localizedActionCameraBounds = nil
+        removeMapEditPresentation()
+        if restorePreviousView, let returnState {
+            restoreMapEditReturnState(returnState)
+        } else {
+            restoreInputFocus()
+        }
+    }
+
+    private func removeMapEditPresentation() {
+        mapEditOverlay?.removeFromSuperview()
+        mapEditOverlay = nil
+        addTerminalCardView?.removeFromSuperview()
+        addTerminalCardView = nil
+        if presentedOverlay === inlineConfirmationView { presentedOverlay = nil }
+        inlineConfirmationView?.removeFromSuperview()
+        inlineConfirmationView = nil
+        addTerminalTileView?.removeFromSuperview()
+        addTerminalTileView = nil
+        removeEditWorkspaceClusters()
+    }
+
+    private func enterWorkspaceDuringMapEdit(at index: Int) -> Bool {
+        guard mapEditOverlay != nil, currentWorkspace == nil,
+              workspaceClusters.indices.contains(index)
+        else { return false }
+        let cluster = workspaceClusters[index]
+        guard cluster.renderingMode == .workspace else { return false }
+        let workspaceID = cluster.workspaceID
+        removeMapEditPresentation()
+        currentWorkspace = workspaceID
+        focusedIndex = nil
+        selectedIndex = activeTerminalIndex(in: workspaceID)
+        updateSelection()
+        return presentMapEditOverlay(cameraPolicy: .directIfNeeded)
+    }
+
+    private func leaveWorkspaceDuringMapEdit() -> Bool {
+        guard mapEditOverlay != nil, let workspaceID = currentWorkspace else { return false }
+        removeMapEditPresentation()
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = workspaceClusters.firstIndex(where: {
+            $0.workspaceID == workspaceID
+        }) ?? 0
+        updateSelection()
+        return presentMapEditOverlay(cameraPolicy: .directIfNeeded)
+    }
+
+    private func restoreMapEditReturnState(_ state: MapEditReturnState) {
+        if let workspaceID = state.workspaceID,
+           workspaces.contains(where: { $0.id == workspaceID })
+        {
+            currentWorkspace = workspaceID
+            let sessions = activeSessionTiles
+            selectedIndex = state.selectedTileID.flatMap { tileID in
+                sessions.firstIndex(where: { $0.session.tileID == tileID })
+            } ?? 0
+            focusedIndex = state.focusedTileID.flatMap { tileID in
+                sessions.firstIndex(where: { $0.session.tileID == tileID })
+            }
+        } else {
+            currentWorkspace = nil
+            focusedIndex = nil
+            selectedIndex = state.overviewWorkspaceID.flatMap { workspaceID in
+                workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID })
+            } ?? 0
+        }
+        updateSelection()
+        moveCamera()
+    }
+
+    private func removeEditWorkspaceClusters() {
+        let temporary = workspaceClusters.filter { $0.renderingMode != .workspace }
+        for cluster in temporary { cluster.removeFromSuperview() }
+        workspaceClusters.removeAll { $0.renderingMode != .workspace }
+        addWorkspaceClusterView = nil
+        addWorkspaceCardView = nil
+        ghostWorkspaceTargets.removeAll()
+        let remainingCount = currentWorkspace == nil
+            ? workspaceClusters.count
+            : activeSessionTiles.count
+        selectedIndex = min(selectedIndex, max(0, remainingCount - 1))
+        updateWorldGeometry()
+    }
+
+    private func runMapEditAction(_ action: MapEditAction) {
+        dismissMapEditOverlay(restorePreviousView: false)
+        switch action.id {
+        case "rename":
+            showRenameWorkspacePalette()
+        case "close":
+            confirmCloseSelectedWorkspace()
+        case let id where id.hasPrefix("openWorkspace:"):
+            let workspaceID = String(id.dropFirst("openWorkspace:".count))
+            guard let index = workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID })
+            else { return }
+            selectedIndex = index
+            updateSelection()
+            activate(index)
+        case let id where id.hasPrefix("closeWorkspace:"):
+            let workspaceID = String(id.dropFirst("closeWorkspace:".count))
+            guard workspaces.contains(where: { $0.id == workspaceID }) else { return }
+            currentWorkspace = workspaceID
+            selectedIndex = workspaceClusters.firstIndex { $0.workspaceID == workspaceID } ?? 0
+            updateSelection()
+            confirmCloseSelectedWorkspace()
+        case let id where id.hasPrefix("attachWorkspace:"):
+            let parts = id.split(separator: ":", maxSplits: 2).map(String.init)
+            guard parts.count == 3,
+                  let record = targetDiscoveries[parts[1]]?.workspaces.first(where: { $0.id == parts[2] }),
+                  let location = registeredTargetLocation(id: parts[1])
+            else { return }
+            restoreNativeWorkspace(record, at: location)
+        default:
+            break
+        }
+    }
+
+    private func beginInlineWorkspaceCreation(
+        in cluster: WorkspaceClusterView,
+        cameraPolicy: InteractionIntentPolicy.Camera = .directIfNeeded
+    ) {
+        mapEditOverlay?.isHidden = true
+        let addCard = AddWorkspaceCardView(frame: cluster.bounds)
+        addCard.autoresizingMask = [.width, .height]
+        addWorkspaceCardView = addCard
+        cluster.addSubview(addCard)
+
+        var sources: [WorkspaceCreationSource] = []
+        var seen = Set<String>()
+        for workspace in workspaces {
+            seen.insert(canonicalLocationKey(workspace.location))
+            sources.append(WorkspaceCreationSource(
+                title: workspace.name,
+                detail: workspace.location.displayName,
+                location: workspace.location,
+                isDisabled: true
+            ))
+        }
+        for location in workspaceLocationHistory {
+            if seen.insert(canonicalLocationKey(location)).inserted {
+                sources.append(WorkspaceCreationSource(
+                    title: "Recent location",
+                    detail: location.displayName,
+                    location: location
+                ))
+            }
+        }
+        let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
+        if seen.insert(canonicalLocationKey(home)).inserted {
+            sources.append(WorkspaceCreationSource(
+                title: "Home",
+                detail: home.displayName,
+                location: home
+            ))
+        }
+
+        addCard.onCancel = { [weak self] in self?.cancelInlineWorkspaceCreation() }
+        addCard.onLeave = { [weak self] in self?.leaveInlineWorkspaceCreation() }
+        addCard.onCreate = { [weak self] location, name in
+            guard let self else { return }
+            do {
+                try self.createNewWorkspace(name: name, location: location)
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            } catch {
+                NSSound.beep()
+            }
+        }
+        addCard.beginCreation(sources: sources)
+        // Route immediate arrow input to the in-card form before camera motion.
+        // Without this, fast input changes the selected overview workspace.
+        window?.makeFirstResponder(addCard)
+        let directDestination = cameraBounds(for: cluster.frame, viewport: sceneViewportBounds)
+        let destination = cameraDestination(for: cameraPolicy, direct: directDestination)
+        moveCameraForPolicy(cameraPolicy, to: destination) { [weak self, weak addCard] in
+            guard let self, let addCard else { return }
+            self.window?.makeFirstResponder(addCard)
+        }
+    }
+
+    private func cancelInlineWorkspaceCreation() {
+        dismissMapEditOverlay()
+    }
+
+    private func leaveInlineWorkspaceCreation() {
+        addWorkspaceCardView?.removeFromSuperview()
+        addWorkspaceCardView = nil
+        mapEditOverlay?.isHidden = false
+        if let addWorkspaceClusterView,
+           let index = workspaceClusters.firstIndex(where: { $0 === addWorkspaceClusterView })
+        {
+            selectedIndex = index
+            updateSelection()
+        }
+        moveCamera { [weak self] in
+            guard let self, let overlay = self.mapEditOverlay else { return }
+            self.window?.makeFirstResponder(overlay)
+        }
+    }
+
+    private func beginInlineTerminalCreation(
+        in tile: TerminalTileView,
+        cameraPolicy: InteractionIntentPolicy.Camera = .directIfNeeded
+    ) {
+        guard addTerminalCardView == nil,
+              let workspace = selectedWorkspaceRecord()
+        else { return }
+        mapEditOverlay?.isHidden = true
+        let addCard = AddTerminalCardView(frame: tile.bounds)
+        addCard.autoresizingMask = [.width, .height]
+        addTerminalCardView = addCard
+        tile.addSubview(addCard)
+
+        addCard.onCancel = { [weak self] in self?.dismissMapEditOverlay() }
+        addCard.onLeave = { [weak self] in self?.leaveInlineTerminalCreation() }
+        addCard.onCreateShell = { [weak self] in
+            guard let self else { return }
+            self.dismissMapEditOverlay(restorePreviousView: false)
+            self.createPersistentSession(
+                workspace: workspace.name,
+                name: self.nextAvailableSessionName(base: "shell", workspace: workspace.name),
+                command: nil,
+                workingDirectory: workspace.workingDirectory
+            )
+        }
+        addCard.onRunCommand = { [weak self] command in
+            guard let self else { return }
+            self.dismissMapEditOverlay(restorePreviousView: false)
+            let executable = command.split(separator: " ").first.map(String.init) ?? "command"
+            self.createPersistentSession(
+                workspace: workspace.name,
+                name: self.nextAvailableSessionName(base: executable, workspace: workspace.name),
+                command: command,
+                workingDirectory: workspace.workingDirectory
+            )
+        }
+
+        window?.makeFirstResponder(addCard)
+        let tileFrame = tile.convert(tile.bounds, to: sceneView)
+        let directDestination = cameraBounds(for: tileFrame, viewport: sceneViewportBounds)
+        let destination = cameraDestination(for: cameraPolicy, direct: directDestination)
+        moveCameraForPolicy(cameraPolicy, to: destination) { [weak self, weak addCard] in
+            guard let self, let addCard else { return }
+            self.window?.makeFirstResponder(addCard)
+        }
+    }
+
+    private func leaveInlineTerminalCreation() {
+        addTerminalCardView?.removeFromSuperview()
+        addTerminalCardView = nil
+        mapEditOverlay?.isHidden = false
+        if let addTerminalTileView,
+           let index = activeSessionTiles.firstIndex(where: { $0 === addTerminalTileView })
+        {
+            selectedIndex = index
+            updateSelection()
+        }
+        moveCamera { [weak self] in
+            guard let self, let overlay = self.mapEditOverlay else { return }
+            self.window?.makeFirstResponder(overlay)
+        }
+    }
+
+    private func selectInlineRemovalTarget(
+        _ target: InteractionIntentPolicy.Target,
+        workspaceID: String?,
+        tileID: String?
+    ) {
+        if target == .currentWorkspace, currentWorkspace == nil, let workspaceID,
+           let index = workspaceClusters.firstIndex(where: {
+               $0.workspaceID == workspaceID && $0.renderingMode == .workspace
+           })
+        {
+            select(index)
+        } else if target == .currentTerminal, currentWorkspace != nil {
+            let index = tileID.flatMap { tileID in
+                activeSessionTiles.firstIndex(where: {
+                    $0.session.tileID == tileID && $0.renderingMode == .terminal
+                })
+            } ?? activeSessionTiles.firstIndex(where: { $0.renderingMode == .terminal })
+            if let index { select(index) }
+        }
+    }
+
+    private func beginInlineRemoval(
+        cameraPolicy: InteractionIntentPolicy.Camera = .directIfNeeded
+    ) {
+        if currentWorkspace == nil {
+            guard workspaceClusters.indices.contains(selectedIndex) else { return }
+            let cluster = workspaceClusters[selectedIndex]
+            guard cluster.renderingMode == .workspace,
+                  let workspace = workspaces.first(where: { $0.id == cluster.workspaceID })
+            else { return }
+            let count = persistedSessionTiles.count { $0.session.workspaceID == workspace.id }
+            presentInlineConfirmation(
+                in: cluster,
+                cameraPolicy: cameraPolicy,
+                heading: "Close workspace \(workspace.name)?",
+                message: "This terminates \(count) terminal \(count == 1 ? "process" : "processes") and removes the workspace from Machinen.",
+                consequence: "Files in the terminals' working directories are not deleted.",
+                confirmTitle: "Close workspace"
+            ) { [weak self] in
+                self?.closeWorkspace(workspace.name)
+            }
+            return
+        }
+
+        let sessions = activeSessionTiles
+        guard sessions.indices.contains(selectedIndex) else { return }
+        let tile = sessions[selectedIndex]
+        guard tile.renderingMode == .terminal else { return }
+        presentInlineConfirmation(
+            in: tile,
+            cameraPolicy: cameraPolicy,
+            heading: "Disconnect terminal \(tile.session.name)?",
+            message: "This removes the terminal tile and disconnects its viewer.",
+            consequence: "The native session, PTY, and process continue running and remain available for reconnection.",
+            confirmTitle: "Disconnect terminal"
+        ) { [weak self, weak tile] in
+            guard let self, let tile else { return }
+            self.bufferCloseSession(tile)
+        }
+    }
+
+    private func presentInlineConfirmation(
+        in host: NSView,
+        cameraPolicy: InteractionIntentPolicy.Camera,
+        heading: String,
+        message: String,
+        consequence: String,
+        confirmTitle: String,
+        action: @escaping @MainActor () -> Void
+    ) {
+        guard inlineConfirmationView == nil else { return }
+        mapEditOverlay?.isHidden = true
+        let confirmation = ActionConfirmationView(
+            frame: host.bounds,
+            heading: heading,
+            message: message,
+            consequence: consequence,
+            confirmTitle: confirmTitle
+        )
+        confirmation.autoresizingMask = [.width, .height]
+        confirmation.layer?.zPosition = 2_000
+        confirmation.onCancel = { [weak self] in
+            guard let self else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay()
+            } else {
+                self.cancelLocalizedAction()
+            }
+        }
+        confirmation.onConfirm = { [weak self] in
+            guard let self else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            } else {
+                self.finishLocalizedAction()
+            }
+            action()
+        }
+        inlineConfirmationView = confirmation
+        presentedOverlay = confirmation
+        host.addSubview(confirmation)
+        window?.makeFirstResponder(confirmation)
+        let hostFrame = host.convert(host.bounds, to: sceneView)
+        let directDestination = cameraBounds(for: hostFrame, viewport: sceneViewportBounds)
+        let destination = cameraDestination(for: cameraPolicy, direct: directDestination)
+        moveCameraForPolicy(cameraPolicy, to: destination) { [weak self, weak confirmation] in
+            guard let self, let confirmation else { return }
+            self.window?.makeFirstResponder(confirmation)
+        }
+    }
+
+    private func cancelLocalizedAction() {
+        let cameraBounds = localizedActionCameraBounds
+        finishLocalizedAction(clearPolicy: false)
+        guard let cameraBounds else {
+            interactionPolicySession = nil
+            restoreInputFocus()
+            return
+        }
+        moveCameraForPolicy(.directIfNeeded, to: cameraBounds) { [weak self] in
+            self?.interactionPolicySession = nil
+            self?.restoreInputFocus()
+        }
+    }
+
+    private func finishLocalizedAction(clearPolicy: Bool = true) {
+        if presentedOverlay === inlineConfirmationView { presentedOverlay = nil }
+        inlineConfirmationView?.removeFromSuperview()
+        inlineConfirmationView = nil
+        localizedActionCameraBounds = nil
+        if clearPolicy { interactionPolicySession = nil }
+    }
+
+    private func leaveInlineRemoval() {
+        guard let confirmation = inlineConfirmationView else { return }
+        confirmation.removeFromSuperview()
+        if presentedOverlay === confirmation { presentedOverlay = nil }
+        inlineConfirmationView = nil
+        mapEditOverlay?.isHidden = false
+        moveCamera { [weak self] in
+            guard let self, let overlay = self.mapEditOverlay else { return }
+            self.window?.makeFirstResponder(overlay)
+        }
+    }
+
+    private func clearInlineMapPanelForIntent() {
+        addWorkspaceCardView?.removeFromSuperview()
+        addWorkspaceCardView = nil
+        addTerminalCardView?.removeFromSuperview()
+        addTerminalCardView = nil
+        if presentedOverlay === inlineConfirmationView { presentedOverlay = nil }
+        inlineConfirmationView?.removeFromSuperview()
+        inlineConfirmationView = nil
+        mapEditOverlay?.isHidden = false
     }
 
     func toggleCommandPalette() {
@@ -2877,12 +4967,28 @@ final class TerminalDeckView: NSView {
                 workspaceCommands()
                     + registeredPaletteCommands(registeredCommands, in: .workspace)
             case .workspaceOverview:
-                [PaletteCommand(
-                    id: .newWorkspace,
-                    title: "New workspace…",
-                    shortcut: "",
-                    space: .workspaceOverview
-                )]
+                [
+                    PaletteCommand(
+                        id: .newWorkspace,
+                        title: "New workspace…",
+                        shortcut: "",
+                        space: .workspaceOverview
+                    ),
+                    PaletteCommand(
+                        id: .registerTarget,
+                        title: "Use another computer…",
+                        shortcut: "",
+                        space: .workspaceOverview
+                    ),
+                    PaletteCommand(
+                        id: .browseTargetSessions,
+                        title: "Sessions…",
+                        shortcut: "",
+                        space: .workspaceOverview
+                    ),
+                ]
+            case .newLocation, .recentLocations:
+                [PaletteCommand]()
             }
         }
     }
@@ -2988,7 +5094,7 @@ final class TerminalDeckView: NSView {
             expectedContext = .workspace
         case .terminal:
             expectedContext = .terminal
-        case .workspaceOverview:
+        case .workspaceOverview, .newLocation, .recentLocations:
             return nil
         }
         guard command.context == expectedContext,
@@ -3021,7 +5127,7 @@ final class TerminalDeckView: NSView {
                 + " · \(selectedWorkspace() ?? "workspace")"
         case .workspace:
             context = "workspace root · \(selectedWorkspace() ?? "workspace")"
-        case .workspaceOverview:
+        case .workspaceOverview, .newLocation, .recentLocations:
             parentPalette?.showStatus("That command group is not available here")
             return
         }
@@ -3067,6 +5173,11 @@ final class TerminalDeckView: NSView {
         switch command.id {
         case .newWorkspace:
             beginNewWorkspaceFlow(from: .commands)
+        case .registerTarget:
+            showRegisterTargetPalette()
+        case .browseTargetSessions:
+            dismissCommandPalette()
+            toggleTargetSessions()
         case .renameWorkspace:
             showRenameWorkspacePalette()
         case .changeWorkspaceLocation:
@@ -3128,7 +5239,7 @@ final class TerminalDeckView: NSView {
             confirmCloseSelectedWorkspace(returnToCommands: true)
         case .reconnectAvailableSession:
             dismissCommandPalette()
-            toggleAvailableSessions(returnToCommands: true)
+            toggleTargetSessions(selecting: selectedSession()?.id)
         case let .registeredCommandGroup(group, space):
             showContextCommandGroupPalette(group, in: space, from: palette)
         case let .registeredCommand(id):
@@ -3167,6 +5278,43 @@ final class TerminalDeckView: NSView {
         emitAPIEvent("command.invoked", data: data)
     }
 
+    private func showRegisterTargetPalette(returnToSharedWorkspaces: Bool = false) {
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "USE ANOTHER COMPUTER",
+            context: "connect using your existing SSH setup",
+            placeholder: "Computer name or user@host…",
+            defaultFooter: "return use computer · esc back",
+            commands: [],
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in
+            guard let self else { return }
+            if returnToSharedWorkspaces {
+                self.dismissCommandPalette()
+                self.toggleTargetSessions()
+            } else {
+                self.toggleCommandPalette()
+            }
+        }
+        palette.onSubmit = { [weak self, weak palette] host in
+            guard let self else { return }
+            do {
+                _ = try self.apiRegisterTarget(["host": host])
+                self.dismissCommandPalette()
+                self.toggleTargetSessions()
+            } catch {
+                palette?.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
+            }
+        }
+        commandPalette = palette
+        paletteKind = .newWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
     private func beginNewWorkspaceFlow(from entry: NewWorkspaceEntry) {
         newWorkspaceEntry = entry
         showNewWorkspaceLocationPalette()
@@ -3175,11 +5323,15 @@ final class TerminalDeckView: NSView {
     private func returnToNewWorkspaceEntry() {
         let entry = newWorkspaceEntry
         newWorkspaceEntry = nil
+        registersSharedWorkspaceOnly = false
         switch entry {
         case .newItem:
             showNewItemPalette()
         case .commands:
             toggleCommandPalette()
+        case .sharedWorkspaces:
+            dismissCommandPalette()
+            toggleTargetSessions()
         case nil:
             dismissCommandPalette()
         }
@@ -3189,10 +5341,12 @@ final class TerminalDeckView: NSView {
         dismissCommandPalette()
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "NEW WORKSPACE · 1 OF 2",
+            heading: registersSharedWorkspaceOnly
+                ? "ADD WORKSPACE · 1 OF 2"
+                : "NEW WORKSPACE · 1 OF 2",
             context: "choose a location",
-            placeholder: "Filter previous locations or choose Browse…",
-            defaultFooter: "Previous locations open directly · esc back",
+            placeholder: "Search workspace locations…",
+            defaultFooter: "Choose a new location or a recent workspace · esc back",
             commands: newWorkspaceLocationCommands()
         )
         palette.layer?.zPosition = 1_000
@@ -3204,9 +5358,7 @@ final class TerminalDeckView: NSView {
                 guard let location = command.location else { return }
                 self.choosePreviousWorkspaceLocation(location, from: palette)
             case .browseLocalWorkspaceLocation:
-                self.showNewWorkspaceLocalBrowser(
-                    path: FileManager.default.homeDirectoryForCurrentUser.path
-                )
+                self.showNewWorkspaceLocalBrowser(path: "/")
             case .chooseRemoteWorkspaceLocation:
                 self.showNewWorkspaceSSHHostPalette()
             case .back:
@@ -3252,11 +5404,30 @@ final class TerminalDeckView: NSView {
     }
 
     private func newWorkspaceLocationCommands() -> [PaletteCommand] {
-        var commands: [PaletteCommand] = []
+        var commands = [
+            PaletteCommand(
+                id: .browseLocalWorkspaceLocation,
+                title: "Choose a local folder…",
+                shortcut: "browse the full file system",
+                space: .newLocation
+            ),
+            PaletteCommand(
+                id: .chooseRemoteWorkspaceLocation,
+                title: "Choose a folder over SSH…",
+                shortcut: "starts in remote $HOME",
+                space: .newLocation
+            ),
+            PaletteCommand(
+                id: .back,
+                title: "Back…",
+                shortcut: "",
+                space: .newLocation
+            ),
+        ]
         var seen = Set<String>()
-        for location in workspaceLocationHistory + workspaces.map(\.location) {
+        for location in (workspaceLocationHistory + workspaces.map(\.location)) {
             let key = canonicalLocationKey(location)
-            guard seen.insert(key).inserted else { continue }
+            guard seen.insert(key).inserted, seen.count <= 10 else { continue }
             let users = workspaces.filter { canonicalLocationKey($0.location) == key }.map(\.name)
             let title = location.kind == .local
                 ? WorkspacePathSuggestions.displayLocalPath(location.path, prefersTilde: true)
@@ -3267,24 +5438,10 @@ final class TerminalDeckView: NSView {
                 shortcut: users.isEmpty
                     ? "previously selected"
                     : "used by \(users.joined(separator: ", "))",
+                space: .recentLocations,
                 location: location
             ))
         }
-        commands.append(PaletteCommand(
-            id: .browseLocalWorkspaceLocation,
-            title: "Browse local…",
-            shortcut: "starts in $HOME"
-        ))
-        commands.append(PaletteCommand(
-            id: .chooseRemoteWorkspaceLocation,
-            title: "Browse over SSH…",
-            shortcut: "starts in remote $HOME"
-        ))
-        commands.append(PaletteCommand(
-            id: .back,
-            title: "Back…",
-            shortcut: ""
-        ))
         return commands
     }
 
@@ -3359,10 +5516,6 @@ final class TerminalDeckView: NSView {
     }
 
     private func localBrowserParentPath(for path: String) -> String? {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        guard canonicalLocationKey(.local(path)) != canonicalLocationKey(.local(home)) else {
-            return nil
-        }
         let parent = URL(fileURLWithPath: path, isDirectory: true).deletingLastPathComponent().path
         return parent == path ? nil : parent
     }
@@ -3384,10 +5537,22 @@ final class TerminalDeckView: NSView {
                         == self.canonicalLocationKey(location)
                 }) ?? []
                 if let first = matching.first {
-                    for record in matching.dropFirst() {
-                        self.restoreNativeWorkspace(record, at: location, opensSessions: false)
+                    if self.registersSharedWorkspaceOnly {
+                        self.registersSharedWorkspaceOnly = false
+                        self.newWorkspaceEntry = nil
+                        self.dismissCommandPalette()
+                        if let targetID = self.targetID(for: location),
+                           let targetLocation = self.registeredTargetLocation(id: targetID)
+                        {
+                            self.refreshRegisteredTarget(targetID, at: targetLocation, force: true)
+                        }
+                        self.toggleTargetSessions()
+                    } else {
+                        for record in matching.dropFirst() {
+                            self.restoreNativeWorkspace(record, at: location, opensSessions: false)
+                        }
+                        self.restoreNativeWorkspace(first, at: location)
                     }
-                    self.restoreNativeWorkspace(first, at: location)
                 } else {
                     self.showNewWorkspaceNamePalette(
                         location: location,
@@ -3402,10 +5567,14 @@ final class TerminalDeckView: NSView {
         let suggestedName = initialName ?? suggestedWorkspaceName(for: location)
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "NEW WORKSPACE · 2 OF 2",
+            heading: registersSharedWorkspaceOnly
+                ? "ADD WORKSPACE · 2 OF 2"
+                : "NEW WORKSPACE · 2 OF 2",
             context: location.displayName,
             placeholder: "Name this workspace…",
-            defaultFooter: "return create · esc back to locations",
+            defaultFooter: registersSharedWorkspaceOnly
+                ? "return add · esc back to locations"
+                : "return create · esc back to locations",
             commands: [],
             acceptsFreeform: true,
             initialQuery: suggestedName
@@ -3433,7 +5602,7 @@ final class TerminalDeckView: NSView {
     private func restoreNativeWorkspace(
         _ record: NativeWorkspaceRecord,
         at requestedLocation: WorkspaceLocation,
-        opensSessions: Bool = true
+        opensSessions: Bool = false
     ) {
         let workspace: WorkspaceRecord
         if let existing = workspaces.first(where: { $0.id == record.id }) {
@@ -3460,6 +5629,7 @@ final class TerminalDeckView: NSView {
             )
             workspaces.append(workspace)
             rememberWorkspaceLocation(workspace.location)
+            registerTargetIfNeeded(for: workspace.location)
             rebuildWorkspaceClusters()
             saveSessions()
             emitAPIEvent("workspace.restored", data: workspaceJSON(workspace))
@@ -4050,12 +6220,54 @@ final class TerminalDeckView: NSView {
         from palette: CommandPaletteView? = nil
     ) {
         do {
-            try createNewWorkspace(name: name, location: requestedLocation)
+            if registersSharedWorkspaceOnly {
+                try registerSharedWorkspace(name: name, location: requestedLocation, from: palette)
+            } else {
+                try createNewWorkspace(name: name, location: requestedLocation)
+            }
         } catch {
             if let palette {
                 palette.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
             } else {
                 presentWorkspaceLocationError(error)
+            }
+        }
+    }
+
+    private func registerSharedWorkspace(
+        name requestedName: String,
+        location requestedLocation: WorkspaceLocation,
+        from palette: CommandPaletteView?
+    ) throws {
+        guard let name = WorkspaceName.validated(requestedName) else {
+            throw MachinenAPIError("invalid_params", "Workspace name must not be empty")
+        }
+        let location = try validatedWorkspaceLocation(requestedLocation)
+        let workspaceID = "ws_" + UUID().uuidString.lowercased()
+        palette?.showStatus("Adding workspace \(name)…")
+        sessionBackend.saveWorkspace(
+            id: workspaceID,
+            name: name,
+            at: location,
+            sessionIDs: []
+        ) { [weak self, weak palette] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                self.registersSharedWorkspaceOnly = false
+                self.newWorkspaceEntry = nil
+                self.rememberWorkspaceLocation(location)
+                self.registerTargetIfNeeded(for: location)
+                self.saveSessions()
+                self.dismissCommandPalette()
+                if let targetID = self.targetID(for: location),
+                   let targetLocation = self.registeredTargetLocation(id: targetID)
+                {
+                    self.refreshRegisteredTarget(targetID, at: targetLocation, force: true)
+                }
+                self.toggleTargetSessions()
+            case let .failure(error):
+                palette?.showStatus(error.localizedDescription)
             }
         }
     }
@@ -4634,9 +6846,7 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         if currentWorkspace == workspaceID {
             selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
-            focusedIndex = activeSessionTiles.isEmpty
-                ? nil
-                : min(focusedIndex ?? selectedIndex, activeSessionTiles.count - 1)
+            focusedIndex = nil
         }
         updateWorldGeometry()
         updateSelection()
@@ -4647,13 +6857,222 @@ final class TerminalDeckView: NSView {
         emitAPIEvent("tile.disconnected", data: tileJSON(tile))
     }
 
+    private func pendingWorkspaceCloseKey(targetID: String, workspaceID: String) -> String {
+        "\(targetID):\(workspaceID)"
+    }
+
+    private func bufferCloseWorkspace(
+        _ nativeRecord: NativeWorkspaceRecord,
+        targetID: String,
+        location: WorkspaceLocation,
+        discoveredSessions: [AvailableTerminalSession]
+    ) {
+        let closeKey = pendingWorkspaceCloseKey(targetID: targetID, workspaceID: nativeRecord.id)
+        guard pendingWorkspaceCloses[closeKey] == nil else { return }
+        let discovery = targetDiscoveries[targetID]
+        let scenePosition = workspaces.firstIndex { $0.id == nativeRecord.id }
+        let sceneRecord = scenePosition.map { workspaces[$0] }
+        let visibleTiles = allSessionTiles.enumerated().compactMap { index, tile in
+            tile.session.workspaceID == nativeRecord.id
+                ? PendingWorkspaceTile(
+                    tile: tile,
+                    position: index,
+                    state: tile.session.state,
+                    wasAttached: terminalViewerIsAttached(tile.session)
+                )
+                : nil
+        }
+        let disconnectedTerminalIDs = recentlyClosedTerminals.values.compactMap { closed in
+            closed.tile.session.workspaceID == nativeRecord.id ? closed.tile.session.id : nil
+        }
+        for terminalID in disconnectedTerminalIDs {
+            finalizePendingClose(terminalID: terminalID)
+        }
+        for pending in visibleTiles where pending.wasAttached {
+            pending.tile.transition(to: .detached, terminalText: pending.tile.session.terminalText)
+            pending.tile.detachTerminalViewer()
+        }
+        for pending in visibleTiles { pending.tile.removeFromSuperview() }
+        allSessionTiles.removeAll { $0.session.workspaceID == nativeRecord.id }
+        if let scenePosition { workspaces.remove(at: scenePosition) }
+
+        pendingWorkspaceCloses[closeKey] = PendingWorkspaceClose(
+            targetID: targetID,
+            location: location,
+            nativeRecord: nativeRecord,
+            discoveredSessions: discoveredSessions,
+            discoveryState: discovery?.state ?? .inactive,
+            discoveryError: discovery?.error,
+            sceneRecord: sceneRecord,
+            scenePosition: scenePosition,
+            sceneTiles: visibleTiles
+        )
+        hideWorkspaceFromDiscovery(workspaceID: nativeRecord.id, targetID: targetID, location: location)
+
+        if currentWorkspace == nativeRecord.id {
+            currentWorkspace = nil
+            focusedIndex = nil
+        }
+        selectedIndex = min(selectedIndex, max(0, workspaces.count - 1))
+        rebuildWorkspaceClusters()
+        enterSoleTerminalIfNeeded()
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+        saveSessions()
+        showWorkspaceUndoToast(closeKey: closeKey, name: nativeRecord.name)
+
+        let task = DispatchWorkItem { [weak self] in
+            self?.finalizePendingWorkspaceClose(closeKey: closeKey)
+        }
+        pendingWorkspaceCloseTasks[closeKey]?.cancel()
+        pendingWorkspaceCloseTasks[closeKey] = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + undoToastDuration, execute: task)
+    }
+
+    private func hideWorkspaceFromDiscovery(
+        workspaceID: String,
+        targetID: String,
+        location: WorkspaceLocation
+    ) {
+        if let discovery = targetDiscoveries[targetID] {
+            let sessions = discovery.sessions.filter { $0.workspaceId != workspaceID }
+            let state: TargetDiscovery.State = if discovery.state == .unreachable {
+                .unreachable
+            } else {
+                sessions.isEmpty ? .inactive : .online
+            }
+            targetDiscoveries[targetID] = TargetDiscovery(
+                state: state,
+                sessions: sessions,
+                workspaces: discovery.workspaces.filter { $0.id != workspaceID },
+                checkedAt: discovery.checkedAt,
+                error: discovery.error
+            )
+        }
+        availableSessionsByMachine[location.machineID]?.removeAll { $0.workspaceId == workspaceID }
+        targetDiscoveryDidChange()
+    }
+
+    private func restorePendingWorkspaceClose(closeKey: String) {
+        guard let pending = pendingWorkspaceCloses.removeValue(forKey: closeKey) else { return }
+        pendingWorkspaceCloseTasks.removeValue(forKey: closeKey)?.cancel()
+        hideWorkspaceUndoToast(ifMatching: closeKey)
+
+        if let sceneRecord = pending.sceneRecord {
+            let insertion = min(max(0, pending.scenePosition ?? workspaces.count), workspaces.count)
+            workspaces.insert(sceneRecord, at: insertion)
+            for pendingTile in pending.sceneTiles.sorted(by: { $0.position < $1.position }) {
+                let tile = pendingTile.tile
+                let tileInsertion = min(max(0, pendingTile.position), allSessionTiles.count)
+                allSessionTiles.insert(tile, at: tileInsertion)
+                installTile(tile)
+                if pendingTile.wasAttached, terminalIsRunning(tile.session) {
+                    tile.transition(to: .starting, terminalText: tile.session.terminalText)
+                    tile.attachTerminal()
+                } else {
+                    tile.transition(to: pendingTile.state, terminalText: tile.session.terminalText)
+                }
+            }
+            rebuildWorkspaceClusters()
+            selectedIndex = min(insertion, max(0, workspaceClusters.count - 1))
+            currentWorkspace = nil
+            focusedIndex = nil
+            updateWorldGeometry()
+            updateSelection()
+            setCameraImmediately()
+        }
+
+        if registeredTargetLocation(id: pending.targetID) == pending.location {
+            let current = targetDiscoveries[pending.targetID]
+            let sessions = (current?.sessions ?? []) + pending.discoveredSessions.filter { session in
+                !(current?.sessions.contains(where: { $0.id == session.id }) ?? false)
+            }
+            let workspaces = (current?.workspaces ?? []) + [pending.nativeRecord].filter { record in
+                !(current?.workspaces.contains(where: { $0.id == record.id }) ?? false)
+            }
+            let state: TargetDiscovery.State = if pending.discoveryState == .unreachable {
+                .unreachable
+            } else {
+                sessions.isEmpty ? .inactive : .online
+            }
+            targetDiscoveries[pending.targetID] = TargetDiscovery(
+                state: state,
+                sessions: sessions,
+                workspaces: workspaces,
+                checkedAt: current?.checkedAt ?? Date(),
+                error: pending.discoveryError
+            )
+            availableSessionsByMachine[pending.location.machineID] = sessions
+        }
+        saveSessions()
+        targetDiscoveryDidChange()
+    }
+
+    private func finalizePendingWorkspaceClose(closeKey: String) {
+        guard let pending = pendingWorkspaceCloses.removeValue(forKey: closeKey) else { return }
+        let workspaceID = pending.nativeRecord.id
+        finalizingWorkspaceIDsByTarget[pending.targetID, default: []].insert(workspaceID)
+        pendingWorkspaceCloseTasks.removeValue(forKey: closeKey)?.cancel()
+        hideWorkspaceUndoToast(ifMatching: closeKey)
+
+        let representedSessionIDs = Set(pending.sceneTiles.map { $0.tile.session.id })
+        for pendingTile in pending.sceneTiles {
+            pendingTile.tile.removeTerminal()
+            emitAPIEvent("tile.deleted", data: tileJSON(pendingTile.tile))
+        }
+        for discovered in pending.discoveredSessions where !representedSessionIDs.contains(discovered.id) {
+            let session = TerminalSession(
+                id: discovered.id,
+                label: "session",
+                workspaceID: workspaceID,
+                workspace: pending.nativeRecord.name,
+                name: discovered.name ?? "session",
+                launch: .loginShell,
+                workingDirectory: discovered.workingDirectory,
+                workspaceRoot: pending.nativeRecord.rootDirectory,
+                sshHost: pending.location.sshHost,
+                startsSessionIfMissing: false,
+                state: .detached
+            )
+            sessionBackend.remove(session)
+        }
+        sessionBackend.deleteWorkspace(id: workspaceID, at: pending.location) { [weak self] result in
+            guard let self else { return }
+            self.finalizingWorkspaceIDsByTarget[pending.targetID]?.remove(workspaceID)
+            if self.finalizingWorkspaceIDsByTarget[pending.targetID]?.isEmpty == true {
+                self.finalizingWorkspaceIDsByTarget.removeValue(forKey: pending.targetID)
+            }
+            self.saveSessions()
+            if case let .failure(error) = result {
+                NSLog("Machinen could not close native workspace: %@", String(describing: error))
+            }
+            if self.registeredTargetLocation(id: pending.targetID) == pending.location {
+                self.refreshRegisteredTarget(pending.targetID, at: pending.location, force: true)
+            }
+        }
+        emitAPIEvent("workspace.deleted", data: [
+            "id": workspaceID,
+            "name": pending.nativeRecord.name,
+        ])
+        saveSessions()
+        refreshStatusBar()
+    }
+
     var canReopenClosedTerminal: Bool { !recentlyClosedTerminals.isEmpty }
     var canRestoreUndoToast: Bool {
+        if let closeKey = undoToastWorkspaceID {
+            return pendingWorkspaceCloses[closeKey] != nil
+        }
         guard let terminalID = undoToastTerminalID else { return false }
         return recentlyClosedTerminals[terminalID] != nil
     }
 
     func restoreUndoToastTerminal() {
+        if let closeKey = undoToastWorkspaceID {
+            restorePendingWorkspaceClose(closeKey: closeKey)
+            return
+        }
         guard let terminalID = undoToastTerminalID else { return }
         reopenClosedTerminal(terminalID: terminalID)
     }
@@ -4706,6 +7125,10 @@ final class TerminalDeckView: NSView {
     }
 
     func terminateLastClosedTerminalNow() {
+        if let closeKey = undoToastWorkspaceID {
+            finalizePendingWorkspaceClose(closeKey: closeKey)
+            return
+        }
         let workspaceID = selectedWorkspaceID()
         let candidates = recentlyClosedTerminals.values.filter {
             workspaceID == nil || $0.tile.session.workspaceID == workspaceID
@@ -4747,6 +7170,7 @@ final class TerminalDeckView: NSView {
         }
         undoCloseView = view
         undoToastTerminalID = terminalID
+        undoToastWorkspaceID = nil
         addSubview(view, positioned: .above, relativeTo: statusBarView)
         needsLayout = true
 
@@ -4757,6 +7181,33 @@ final class TerminalDeckView: NSView {
         DispatchQueue.main.asyncAfter(deadline: .now() + undoToastDuration, execute: task)
     }
 
+    private func showWorkspaceUndoToast(closeKey: String, name: String) {
+        undoToastDismissTask?.cancel()
+        undoCloseView?.removeFromSuperview()
+
+        let view = UndoTerminalCloseView(frame: .zero)
+        view.headline = "Closed \(name)"
+        view.detail = "Sessions keep running until the close is committed"
+        view.commitTitle = "Close now"
+        view.restoreTitle = "Undo ⌘Z"
+        view.onRestore = { [weak self] in
+            self?.restorePendingWorkspaceClose(closeKey: closeKey)
+        }
+        view.onKill = { [weak self] in
+            self?.finalizePendingWorkspaceClose(closeKey: closeKey)
+        }
+        undoCloseView = view
+        undoToastTerminalID = nil
+        undoToastWorkspaceID = closeKey
+        addSubview(view, positioned: .above, relativeTo: statusBarView)
+        needsLayout = true
+    }
+
+    private func hideWorkspaceUndoToast(ifMatching closeKey: String) {
+        guard undoToastWorkspaceID == closeKey else { return }
+        hideUndoToast()
+    }
+
     private func hideUndoToast(ifMatching terminalID: String? = nil) {
         if let terminalID, undoToastTerminalID != terminalID { return }
         undoToastDismissTask?.cancel()
@@ -4764,6 +7215,7 @@ final class TerminalDeckView: NSView {
         undoCloseView?.removeFromSuperview()
         undoCloseView = nil
         undoToastTerminalID = nil
+        undoToastWorkspaceID = nil
     }
 
     private func closeSession(_ tile: TerminalTileView) {
@@ -4781,7 +7233,7 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         if currentWorkspace == workspaceID {
             selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
-            focusedIndex = activeSessionTiles.count == 1 ? 0 : nil
+            focusedIndex = nil
         }
         updateWorldGeometry()
         updateSelection()
@@ -4893,6 +7345,7 @@ final class TerminalDeckView: NSView {
 
     func prepareForTermination() {
         isShuttingDown = true
+        removeGestureEventMonitor()
         availableSessionsRefreshTimer?.invalidate()
         availableSessionsRefreshTimer = nil
         for tile in persistedSessionTiles where tile.session.state == .running || tile.session.state == .starting {
@@ -4955,6 +7408,28 @@ final class TerminalDeckView: NSView {
     }
 
     func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        if let addWorkspaceCardView,
+           addWorkspaceCardView.window?.firstResponder === addWorkspaceCardView
+        {
+            return addWorkspaceCardView.performShortcut(action)
+        }
+        if let addTerminalCardView,
+           addTerminalCardView.window?.firstResponder === addTerminalCardView
+        {
+            return addTerminalCardView.performShortcut(action)
+        }
+        if let inlineConfirmationView,
+           inlineConfirmationView.window?.firstResponder === inlineConfirmationView
+        {
+            if action == .leave {
+                leaveInlineRemoval()
+                return true
+            }
+            return inlineConfirmationView.performShortcut(action)
+        }
+        if mapEditOverlay != nil, action == .leave, currentWorkspace != nil {
+            return leaveWorkspaceDuringMapEdit()
+        }
         switch action {
         case .enter:
             return zoomInOneLevel()
@@ -5033,22 +7508,27 @@ final class TerminalDeckView: NSView {
     }
 
     /// `previousWorkspace` and `nextWorkspace` use a short directional slide
-    /// and fade to reveal an adjacent workspace's active terminal at the same zoom.
+    /// and fade to reveal an adjacent workspace at the same hierarchy level.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
         let sourceSessions = activeSessionTiles
         guard presentedOverlay == nil, commandPalette == nil,
               !isTransitioning, !isPeeking,
-              let focusedIndex, sourceSessions.indices.contains(focusedIndex),
               offset != 0,
               let sourceWorkspaceID = currentWorkspace
         else { return false }
 
-        // Workspaces without tiles remain visible in the overview but cannot
-        // be a destination for a shortcut that promises to end in a terminal.
-        let destinations = workspaces.filter { workspace in
-            allSessionTiles.contains { $0.session.workspaceID == workspace.id }
+        let keepsTerminalFocus = focusedIndex != nil
+        if keepsTerminalFocus {
+            guard let focusedIndex, sourceSessions.indices.contains(focusedIndex) else {
+                return false
+            }
         }
+        let destinations = keepsTerminalFocus
+            ? workspaces.filter { workspace in
+                allSessionTiles.contains { $0.session.workspaceID == workspace.id }
+            }
+            : workspaces
         guard destinations.count > 1,
               let sourceIndex = destinations.firstIndex(where: { $0.id == sourceWorkspaceID })
         else { return false }
@@ -5057,24 +7537,41 @@ final class TerminalDeckView: NSView {
             sourceIndex + offset % destinations.count + destinations.count
         ) % destinations.count
         let targetWorkspace = destinations[targetWorkspaceIndex]
+        if !keepsTerminalFocus, mapEditOverlay != nil {
+            moveEditTerminalTile(to: targetWorkspace)
+        }
         let targetSessions = activeSessionTiles(for: targetWorkspace.id)
-        guard !targetSessions.isEmpty else { return false }
+        guard !keepsTerminalFocus || !targetSessions.isEmpty else { return false }
 
-        let sourceTileID = sourceSessions[focusedIndex].session.tileID
-        let targetTerminalIndex = activeTerminalIndex(in: targetWorkspace.id)
-        let targetTileID = targetSessions[targetTerminalIndex].session.tileID
+        let targetTerminalIndex = targetSessions.isEmpty
+            ? nil
+            : activeTerminalIndex(in: targetWorkspace.id)
+        let targetTileID = targetTerminalIndex.map {
+            targetSessions[$0].session.tileID
+        }
         InputRoutingLog.log(
-            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id) "
-                + "tile=\(sourceTileID)→\(targetTileID)"
+            "cycles workspace level=\(keepsTerminalFocus ? "terminal" : "workspace") "
+                + "workspace=\(sourceWorkspaceID)→\(targetWorkspace.id)"
         )
 
         beginWorkspaceTransition(
             to: targetWorkspace.id,
             tileID: targetTileID,
-            focusTerminal: true,
+            focusTerminal: keepsTerminalFocus,
             direction: offset > 0 ? 1 : -1
         )
         return true
+    }
+
+    private func moveEditTerminalTile(to workspace: WorkspaceRecord) {
+        guard let addTerminalTileView else { return }
+        addTerminalTileView.removeFromSuperview()
+        addTerminalTileView.session.workspaceID = workspace.id
+        addTerminalTileView.session.workspace = workspace.name
+        addTerminalTileView.session.workspaceRoot = workspace.workingDirectory
+        addTerminalTileView.session.location = workspace.location
+        addTerminalTileView.transition(to: .stopped, terminalText: "")
+        updateWorldGeometry()
     }
 
     private func workspaceTransitionDirection(to workspaceID: String) -> CGFloat {
@@ -5183,10 +7680,31 @@ final class TerminalDeckView: NSView {
     }
 
     func createNewWorkspaceOrTerminal() {
-        showNewItemPalette()
+        guard prepareForInteractionIntent() else { return }
+        clearInlineMapPanelForIntent()
+        guard let rule = interactionRule(for: .new),
+              (rule.panel == .newWorkspace && rule.effect == .createWorkspace)
+                || (rule.panel == .newTerminal && rule.effect == .createTerminal)
+        else { return }
+        if mapEditOverlay != nil {
+            selectMapEditTarget(rule.target)
+            activateMapEditCreationTarget(rule.target, cameraPolicy: rule.camera)
+            return
+        }
+        presentMapEditOverlay(
+            cameraPolicy: .none,
+            onPresented: { [weak self] in self?.selectMapEditTarget(rule.target) },
+            onReady: { [weak self] in
+                self?.activateMapEditCreationTarget(rule.target, cameraPolicy: rule.camera)
+            }
+        )
     }
 
     func handleCommandW() {
+        if let closeKey = undoToastWorkspaceID {
+            finalizePendingWorkspaceClose(closeKey: closeKey)
+            return
+        }
         if let terminalID = undoToastTerminalID {
             finalizePendingClose(terminalID: terminalID)
             return
@@ -5195,17 +7713,32 @@ final class TerminalDeckView: NSView {
             availableSessionsView.killSelected()
             return
         }
+        if inlineConfirmationView != nil { return }
         if presentedOverlay != nil { return }
         if commandPalette != nil {
             dismissCommandPalette()
             return
         }
-        guard !isTransitioning, !isPeeking else { return }
-        if currentWorkspace == nil {
-            confirmCloseSelectedWorkspace()
-        } else if let tile = selectedSessionTile() {
-            bufferCloseSession(tile)
+        guard prepareForInteractionIntent() else { return }
+        clearInlineMapPanelForIntent()
+        guard let rule = interactionRule(for: .close),
+              (rule.panel == .closeWorkspace && rule.effect == .closeWorkspace)
+                || (rule.panel == .disconnectTerminal && rule.effect == .disconnectTerminal)
+        else { return }
+        let workspaceID = currentWorkspace == nil ? selectedWorkspaceID() : currentWorkspace
+        let tileID = currentWorkspace == nil
+            ? nil
+            : selectedSessionTile().flatMap { tile in
+                tile.renderingMode == .terminal ? tile.session.tileID : nil
+            }
+        if mapEditOverlay != nil {
+            selectInlineRemovalTarget(rule.target, workspaceID: workspaceID, tileID: tileID)
+            beginInlineRemoval(cameraPolicy: rule.camera)
+            return
         }
+        interactionPolicySession = interactionIntentEngine.snapshot()
+        localizedActionCameraBounds = sceneView.bounds
+        beginInlineRemoval(cameraPolicy: rule.camera)
     }
 
     private func nextAvailableWorkspaceName(base requestedBase: String = "workspace") -> String {
@@ -5299,6 +7832,14 @@ final class TerminalDeckView: NSView {
         switch operation {
         case "system.snapshot":
             return snapshotJSON()
+        case "target.list":
+            return targetListJSON()
+        case "target.register":
+            return try apiRegisterTarget(params)
+        case "target.remove":
+            return try apiRemoveTarget(params)
+        case "target.sessions":
+            return targetSessionsJSON()
         case "workspace.list":
             return ["workspaces": workspaces.map(workspaceJSON)]
         case "workspace.get":
@@ -5354,7 +7895,7 @@ final class TerminalDeckView: NSView {
             refreshStatusBar()
             return [
                 "widgets": statusWidgets.values.map { $0.json() },
-                "effectiveWidgets": statusBarView.widgets.map { $0.json() },
+                "effectiveWidgets": effectiveStatusWidgets.map { $0.json() },
             ]
         case "status.set":
             return try apiSetStatusWidget(params)
@@ -5395,6 +7936,94 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private func targetListJSON() -> JSONObject {
+        ["targets": registeredTargetLocations().map { target in
+            let discovery = targetDiscoveries[target.id]
+            var result: JSONObject = target.id == "local"
+                ? ["id": "local", "kind": "local", "implicit": true]
+                : ["id": target.id, "kind": "ssh", "host": target.location.sshHost ?? ""]
+            result["state"] = discovery?.state.rawValue ?? "inactive"
+            result["lastCheckedAt"] = discovery.map { ISO8601DateFormatter().string(from: $0.checkedAt) } ?? NSNull()
+            result["error"] = discovery?.error ?? NSNull()
+            return result
+        }]
+    }
+
+    private func targetSessionsJSON() -> JSONObject {
+        let targets: [JSONObject] = registeredTargetLocations().map { target in
+            let discovery = targetDiscoveries[target.id]
+            let targetJSON: JSONObject
+            if target.id == "local" {
+                targetJSON = ["id": "local", "kind": "local"]
+            } else {
+                targetJSON = targetMachines.first(where: { $0.id == target.id })?.json ?? [:]
+            }
+            let workspaces: [JSONObject] = discovery?.workspaces.map { record in
+                ["id": record.id, "name": record.name, "rootDirectory": record.rootDirectory]
+            } ?? []
+            let sessions: [JSONObject] = discovery?.sessions
+                .filter { $0.state == "running" || $0.state == "created" }
+                .map { session in
+                [
+                    "id": session.id,
+                    "name": session.name ?? NSNull(),
+                    "workspaceId": session.workspaceId ?? NSNull(),
+                    "workingDirectory": session.workingDirectory,
+                    "state": session.state,
+                ]
+            } ?? []
+            return [
+                "target": targetJSON,
+                "state": discovery?.state.rawValue ?? "inactive",
+                "workspaces": workspaces,
+                "sessions": sessions,
+                "error": discovery?.error ?? NSNull(),
+            ]
+        }
+        return ["targets": targets]
+    }
+
+    private func apiRegisterTarget(_ params: JSONObject) throws -> Any {
+        guard let host = validSSHHost(try requiredString("host", in: params)) else {
+            throw MachinenAPIError("invalid_params", "host must be an OpenSSH alias, host, or user@host")
+        }
+        if let existing = targetMachines.first(where: { TargetMachine.normalizedHost($0.sshHost) == TargetMachine.normalizedHost(host) }) {
+            return existing.json
+        }
+        let target = TargetMachine(sshHost: host)
+        targetMachines.append(target)
+        saveSessions()
+        refreshRegisteredTarget(target.id, at: target.location, force: true)
+        emitAPIEvent("target.registered", data: target.json)
+        return target.json
+    }
+
+    private func apiRemoveTarget(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("targetId", in: params)
+        guard id != "local", let index = targetMachines.firstIndex(where: { $0.id == id }) else {
+            throw MachinenAPIError("invalid_params", "Only an explicit SSH target may be removed")
+        }
+        let target = targetMachines.remove(at: index)
+        targetDiscoveryGeneration[id] = (targetDiscoveryGeneration[id] ?? 0) + 1
+        targetDiscoveryInFlight.remove(id)
+        targetDiscoveryFailureCount.removeValue(forKey: id)
+        targetDiscoveryRetryAfter.removeValue(forKey: id)
+        targetDiscoveries.removeValue(forKey: id)
+        availableSessionsByMachine.removeValue(forKey: target.location.machineID)
+        availableSessionsErrors.removeValue(forKey: target.location.machineID)
+        availableSessionsLastRefresh.removeValue(forKey: target.location.machineID)
+        saveSessions()
+        targetDiscoveryDidChange()
+        emitAPIEvent("target.removed", data: target.json)
+        return target.json
+    }
+
+    private func removeTargetMachine(_ id: String) {
+        guard let target = targetMachines.first(where: { $0.id == id }) else { return }
+        _ = try? apiRemoveTarget(["targetId": target.id])
+        refreshTargetSessionsView()
+    }
+
     private func apiCreateWorkspace(_ params: JSONObject) throws -> Any {
         let requestedName = try requiredString("name", in: params)
         guard let name = WorkspaceName.validated(requestedName) else {
@@ -5420,6 +8049,7 @@ final class TerminalDeckView: NSView {
         let position = clampedPosition(params["position"] as? Int, count: workspaces.count)
         workspaces.insert(workspace, at: position)
         rememberWorkspaceLocation(location)
+        registerTargetIfNeeded(for: location)
         rebuildWorkspaceClusters()
         updateWorldGeometry()
         updateSelection()
@@ -5447,6 +8077,7 @@ final class TerminalDeckView: NSView {
         }
         workspace.location = validated
         rememberWorkspaceLocation(validated)
+        registerTargetIfNeeded(for: validated)
         if previous.machineID != validated.machineID, !keepsPreviousReplica {
             sessionBackend.deleteWorkspace(id: workspace.id, at: previous) { result in
                 if case let .failure(error) = result {
@@ -6246,6 +8877,7 @@ final class TerminalDeckView: NSView {
         focusedIndex = nil
         updateSelection()
         setCameraImmediately()
+        saveSessions()
         return uiJSON()
     }
 
@@ -6347,6 +8979,7 @@ final class TerminalDeckView: NSView {
             "workspaces": workspaces.map(workspaceJSON),
             "tiles": allSessionTiles.map(tileJSON),
             "terminals": allSessionTiles.map(terminalJSON),
+            "targets": targetListJSON()["targets"] ?? [],
             "ui": uiJSON(),
         ]
     }
@@ -6652,13 +9285,13 @@ final class TerminalDeckView: NSView {
         let workspace = selectedWorkspaceRecord()
         if let terminal = focusedTerminal {
             let workspaceName = workspace?.name ?? terminal.session.workspace
-            statusBarView.title = "\(workspaceName) > \(terminal.session.displayName)"
+            statusBarView.title = "Workspaces > \(workspaceName) > \(terminal.session.displayName)"
             statusBarView.titleTooltip = "\(terminal.session.effectiveLocation.displayName) · \(terminal.session.commandTitle)"
-        } else if let workspace {
-            statusBarView.title = workspace.name
+        } else if currentWorkspace != nil, let workspace {
+            statusBarView.title = "Workspaces > \(workspace.name)"
             statusBarView.titleTooltip = workspace.location.displayName
         } else {
-            statusBarView.title = "MACHINEN"
+            statusBarView.title = "Workspaces"
             statusBarView.titleTooltip = nil
         }
         statusBarView.workspaceChoices = workspaces.map { candidate in
@@ -6668,8 +9301,8 @@ final class TerminalDeckView: NSView {
                 tooltip: candidate.location.displayName
             )
         }
-        statusBarView.selectedWorkspaceID = workspaceID
-        statusBarView.terminalChoices = workspaceID.map { id in
+        statusBarView.selectedWorkspaceID = currentWorkspace
+        statusBarView.terminalChoices = currentWorkspace.map { id in
             activeSessionTiles(for: id).map { tile in
                 MachinenStatusNavigationChoice(
                     id: tile.session.id,
@@ -6718,6 +9351,31 @@ final class TerminalDeckView: NSView {
             priority: 10_000,
             expiresAt: nil
         )
+        let registeredDiscoveries = registeredTargetLocations().compactMap {
+            targetDiscoveries[$0.id]
+        }
+        let targetSessionCount = registeredDiscoveries.reduce(0) { count, discovery in
+            count + discovery.sessions.count
+        }
+        let targetIsUnreachable = registeredDiscoveries.contains {
+            $0.state == .unreachable
+        }
+        resolved["machinen.targetSessions"] = MachinenStatusWidget(
+            id: "machinen.targetSessions",
+            scopeKind: .global,
+            scopeID: nil,
+            placement: .right,
+            kind: .count,
+            label: "Shared",
+            value: String(targetSessionCount),
+            progress: nil,
+            tone: targetIsUnreachable ? .attention : (targetSessionCount > 0 ? .good : .neutral),
+            tooltip: targetIsUnreachable
+                ? "A shared computer is unreachable; showing its last known state · click to manage"
+                : "\(targetSessionCount) active sessions across computers · click to manage",
+            priority: 960,
+            expiresAt: nil
+        )
         if let workspace {
             let availableCount = availableSessionItems(for: workspace).count { !$0.isAttached }
             if availableCount > 0 {
@@ -6737,7 +9395,10 @@ final class TerminalDeckView: NSView {
                 )
             }
         }
-        statusBarView.widgets = Array(resolved.values)
+        effectiveStatusWidgets = Array(resolved.values)
+        statusBarView.widgets = effectiveStatusWidgets.filter {
+            $0.id == "machinen.versions"
+        }
     }
 }
 

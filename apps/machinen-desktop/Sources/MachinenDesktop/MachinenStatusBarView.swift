@@ -185,8 +185,9 @@ final class MachinenStatusBarView: NSView {
     /// Called immediately as the pointer enters or leaves a status item. The
     /// deck presents this outside the compact status bar as readable text.
     var onHoverChange: ((MachinenStatusWidget?, NSRect, String?) -> Void)?
-    /// Return true when a widget consumed the click.
-    var onWidgetClick: ((MachinenStatusWidget) -> Bool)?
+    /// Return true when a widget consumed the click. The frame is in status-bar coordinates.
+    var onWidgetClick: ((MachinenStatusWidget, NSRect) -> Bool)?
+    var onOverviewSelect: (() -> Void)?
     var onWorkspaceSelect: ((String) -> Void)?
     var onTerminalSelect: ((String) -> Void)?
     var onSpatialMinimapHoverChange: ((Bool) -> Void)?
@@ -195,6 +196,7 @@ final class MachinenStatusBarView: NSView {
     private let spatialMinimapView = SpatialMinimapView(presentation: .statusBar)
     private var widgetFrames: [WidgetFrame] = []
     private var titleFrame = NSRect.zero
+    private var overviewFrame = NSRect.zero
     private var workspaceFrame = NSRect.zero
     private var terminalFrame = NSRect.zero
     private var hoverTrackingArea: NSTrackingArea?
@@ -217,6 +219,8 @@ final class MachinenStatusBarView: NSView {
 
     var spatialMinimapForTesting: SpatialMinimapView { spatialMinimapView }
     var navigationTitleFrameForTesting: NSRect { titleFrame }
+    var overviewFrameForTesting: NSRect { overviewFrame }
+    var workspaceFrameForTesting: NSRect { workspaceFrame }
     var widgetFramesForTesting: [NSRect] { widgetFrames.map(\.rect) }
 
     func updateSpatialMinimap(
@@ -245,7 +249,10 @@ final class MachinenStatusBarView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         if !spatialMinimapView.isHidden, spatialMinimapView.frame.contains(point) { return self }
-        if workspaceFrame.contains(point) || terminalFrame.contains(point) { return self }
+        if overviewFrame.contains(point)
+            || workspaceFrame.contains(point)
+            || terminalFrame.contains(point)
+        { return self }
         if titleTooltip != nil, titleFrame.contains(point) { return self }
         return widgetFrames.contains(where: { $0.rect.contains(point) }) ? self : nil
     }
@@ -269,9 +276,14 @@ final class MachinenStatusBarView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if let widget = widgetFrames.first(where: { $0.rect.contains(point) })?.widget {
-            if onWidgetClick?(widget) == true { return }
-            if presentLinks(for: widget, at: point) { return }
+        if let widgetFrame = widgetFrames.first(where: { $0.rect.contains(point) }) {
+            if onWidgetClick?(widgetFrame.widget, widgetFrame.rect) == true { return }
+            if presentLinks(for: widgetFrame.widget, at: point) { return }
+        }
+        if overviewFrame.contains(point) {
+            onOverviewSelect?()
+            onMouseDown?()
+            return
         }
         if workspaceFrame.contains(point), !workspaceChoices.isEmpty {
             presentNavigationMenu(workspaceMenu(), from: workspaceFrame)
@@ -409,6 +421,10 @@ final class MachinenStatusBarView: NSView {
             itemID = "machinen.status.spatialMinimap"
             detail = nil
             anchor = spatialMinimapView.frame
+        } else if overviewFrame.contains(point) {
+            itemID = "machinen.status.overview"
+            detail = "Workspace overview"
+            anchor = overviewFrame
         } else if let workspaceChoice, workspaceFrame.contains(point) {
             itemID = "machinen.status.workspace.\(workspaceChoice.id)"
             detail = workspaceChoice.tooltip ?? titleTooltip
@@ -499,22 +515,27 @@ final class MachinenStatusBarView: NSView {
     }
 
     private func drawNavigationTitle(at point: NSPoint) -> CGFloat {
+        overviewFrame = .zero
         workspaceFrame = .zero
         terminalFrame = .zero
+        var x = point.x
+        let overviewWidth = drawText(
+            "Workspaces",
+            at: NSPoint(x: x, y: point.y),
+            color: NSColor(calibratedWhite: 0.78, alpha: 1),
+            font: .systemFont(ofSize: 11, weight: .semibold)
+        )
+        overviewFrame = NSRect(x: x - 4, y: 8, width: overviewWidth + 8, height: 24)
+        x += overviewWidth
+
         guard let selectedWorkspaceID,
               let workspace = workspaceChoices.first(where: { $0.id == selectedWorkspaceID })
         else {
-            let width = drawText(
-                title,
-                at: point,
-                color: NSColor(calibratedWhite: 0.78, alpha: 1),
-                font: .systemFont(ofSize: 11, weight: .semibold)
-            )
-            titleFrame = NSRect(x: point.x, y: 8, width: width, height: 24)
-            return width
+            titleFrame = overviewFrame
+            return x - point.x
         }
 
-        var x = point.x
+        x += drawBreadcrumbSeparator(at: NSPoint(x: x + 7, y: point.y)) + 14
         let workspaceWidth = drawMenuTitle(workspace.title, at: NSPoint(x: x, y: point.y))
         workspaceFrame = NSRect(x: x - 4, y: 8, width: workspaceWidth + 8, height: 24)
         x += workspaceWidth
@@ -522,22 +543,24 @@ final class MachinenStatusBarView: NSView {
         if let selectedTerminalID,
            let terminal = terminalChoices.first(where: { $0.id == selectedTerminalID })
         {
-            x += 7
-            let separatorWidth = drawText(
-                "›",
-                at: NSPoint(x: x, y: point.y),
-                color: NSColor(calibratedWhite: 0.42, alpha: 1),
-                font: .systemFont(ofSize: 11, weight: .medium)
-            )
-            x += separatorWidth + 7
+            x += drawBreadcrumbSeparator(at: NSPoint(x: x + 7, y: point.y)) + 14
             let terminalWidth = drawMenuTitle(terminal.title, at: NSPoint(x: x, y: point.y))
             terminalFrame = NSRect(x: x - 4, y: 8, width: terminalWidth + 8, height: 24)
             x += terminalWidth
-            titleFrame = workspaceFrame.union(terminalFrame)
+            titleFrame = overviewFrame.union(workspaceFrame).union(terminalFrame)
         } else {
-            titleFrame = workspaceFrame
+            titleFrame = overviewFrame.union(workspaceFrame)
         }
         return x - point.x
+    }
+
+    private func drawBreadcrumbSeparator(at point: NSPoint) -> CGFloat {
+        drawText(
+            ">",
+            at: point,
+            color: NSColor(calibratedWhite: 0.42, alpha: 1),
+            font: .systemFont(ofSize: 11, weight: .medium)
+        )
     }
 
     private func drawMenuTitle(_ text: String, at point: NSPoint) -> CGFloat {

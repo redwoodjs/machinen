@@ -4,6 +4,10 @@ final class UndoTerminalCloseView: NSView {
     var terminalName = "terminal" {
         didSet { needsDisplay = true }
     }
+    var headline: String?
+    var detail: String?
+    var commitTitle: String?
+    var restoreTitle: String?
     var onRestore: (() -> Void)?
     var onKill: (() -> Void)?
 
@@ -36,19 +40,19 @@ final class UndoTerminalCloseView: NSView {
         border.stroke()
 
         drawText(
-            "Disconnected \(terminalName)",
+            headline ?? "Disconnected \(terminalName)",
             in: NSRect(x: 14, y: 10, width: max(1, bounds.width - 246), height: 17),
             color: NSColor(calibratedWhite: 0.92, alpha: 1),
             weight: .semibold
         )
         drawText(
-            "Session keeps running · press ⌘W again to kill",
+            detail ?? "Session keeps running · press ⌘W again to kill",
             in: NSRect(x: 14, y: 29, width: max(1, bounds.width - 246), height: 15),
             color: NSColor(calibratedWhite: 0.56, alpha: 1),
             weight: .regular
         )
-        drawButton(killRect(), title: "Kill ⌘W", emphasized: false)
-        drawButton(restoreRect(), title: "Reconnect ⌘Z", emphasized: true)
+        drawButton(killRect(), title: commitTitle ?? "Kill ⌘W", emphasized: false)
+        drawButton(restoreRect(), title: restoreTitle ?? "Reconnect ⌘Z", emphasized: true)
     }
 
     override func mouseDown(with event: NSEvent) {

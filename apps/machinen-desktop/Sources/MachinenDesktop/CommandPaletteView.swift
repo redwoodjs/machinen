@@ -5,18 +5,24 @@ struct PaletteCommand {
         case workspaceOverview
         case workspace
         case terminal
+        case newLocation
+        case recentLocations
 
         var title: String {
             switch self {
             case .workspaceOverview: "WORKSPACE OVERVIEW"
             case .workspace: "WORKSPACE"
             case .terminal: "TERMINAL"
+            case .newLocation: "NEW LOCATION"
+            case .recentLocations: "RECENT WORKSPACES"
             }
         }
     }
 
     enum ID: Equatable {
         case newWorkspace
+        case registerTarget
+        case browseTargetSessions
         case newTerminalInWorkspace
         case back
         case renameWorkspace
@@ -44,6 +50,7 @@ struct PaletteCommand {
         case showDiagnostics
         case registeredCommandGroup(String, Space)
         case registeredCommand(String)
+        case sharedWorkspaceBrowserAction(Int)
         case createShell
         case runCommand
         case chooseProject
@@ -117,6 +124,7 @@ final class CommandPaletteView: NSView {
     private var statusMessage: String?
 
     var onDismiss: (() -> Void)?
+    var onBack: (() -> Void)?
     var onRun: ((PaletteCommand) -> Void)?
     var onSubmit: ((String) -> Void)?
     var onQueryChange: ((String) -> Void)?
@@ -213,6 +221,8 @@ final class CommandPaletteView: NSView {
             } else if !query.isEmpty {
                 query.removeLast()
                 queryChanged()
+            } else {
+                onBack?()
             }
         default:
             if let characters = event.characters, !characters.isEmpty,

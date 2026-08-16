@@ -9,6 +9,12 @@ private final class WorkspaceBorderView: NSView {
 }
 
 final class WorkspaceClusterView: NSView {
+    enum RenderingMode: Equatable {
+        case workspace
+        case newWorkspace
+        case ghost
+    }
+
     private enum Metrics {
         static let padding: CGFloat = 12
         static let gap: CGFloat = 16
@@ -18,6 +24,12 @@ final class WorkspaceClusterView: NSView {
     }
 
     let workspaceID: String
+    var renderingMode: RenderingMode {
+        didSet {
+            updateBorderAppearance()
+            needsDisplay = true
+        }
+    }
     var workspace: String {
         didSet {
             setAccessibilityLabel("Workspace \(workspace)")
@@ -38,6 +50,13 @@ final class WorkspaceClusterView: NSView {
     private var isTrackingPointer = false
 
     var isSelected = false {
+        didSet {
+            updateBorderAppearance()
+            if renderingMode != .workspace { needsDisplay = true }
+        }
+    }
+
+    var selectionBorderAlpha: CGFloat = 1 {
         didSet { updateBorderAppearance() }
     }
 
@@ -56,10 +75,16 @@ final class WorkspaceClusterView: NSView {
     override var isOpaque: Bool { false }
     override var acceptsFirstResponder: Bool { false }
 
-    init(workspaceID: String, workspace: String, label: String) {
+    init(
+        workspaceID: String,
+        workspace: String,
+        label: String,
+        renderingMode: RenderingMode = .workspace
+    ) {
         self.workspaceID = workspaceID
         self.workspace = workspace
         self.label = label
+        self.renderingMode = renderingMode
         super.init(frame: .zero)
         wantsLayer = true
         borderView.wantsLayer = true
@@ -87,6 +112,10 @@ final class WorkspaceClusterView: NSView {
     func arrange(sessions: [TerminalTileView], terminalSize: NSSize) -> NSSize {
         self.sessions = sessions
         let cardSize = TerminalTileView.cardSize(for: terminalSize)
+        if renderingMode != .workspace {
+            sessionColumns = 1
+            return cardSize
+        }
         if sessions.count == 1, let tile = sessions.first {
             // A singleton is already the workspace's complete live surface.
             // Do not shrink it into a card with decorative workspace padding.
@@ -193,24 +222,46 @@ final class WorkspaceClusterView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        NSColor(calibratedWhite: 0.075, alpha: 0.96).setFill()
         let cornerRadius = isEntered ? 0 : Metrics.cornerRadius
-        NSBezierPath(
-            roundedRect: bounds,
-            xRadius: cornerRadius,
-            yRadius: cornerRadius
-        ).fill()
+        switch renderingMode {
+        case .workspace:
+            NSColor(calibratedWhite: 0.075, alpha: 0.96).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: cornerRadius, yRadius: cornerRadius).fill()
+        case .newWorkspace, .ghost:
+            let color = renderingMode == .newWorkspace
+                ? NSColor.systemBlue
+                : NSColor.secondaryLabelColor
+            let path = NSBezierPath(
+                roundedRect: bounds.insetBy(dx: 2, dy: 2),
+                xRadius: Metrics.cornerRadius,
+                yRadius: Metrics.cornerRadius
+            )
+            path.setLineDash([9, 7], count: 2, phase: 0)
+            color.setStroke()
+            path.lineWidth = isSelected ? 4 : 2
+            path.stroke()
+            let title = renderingMode == .newWorkspace ? "+ Add workspace" : "ghost: \(workspace)"
+            title.draw(
+                in: NSRect(x: 24, y: bounds.midY - 10, width: bounds.width - 48, height: 20),
+                withAttributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
+                    .foregroundColor: color,
+                ]
+            )
+        }
     }
 
     private func updateBorderAppearance() {
-        borderView.isHidden = isEntered
+        borderView.isHidden = isEntered || renderingMode != .workspace
         borderView.layer?.borderWidth = isSelected || isDragTarget
             ? Metrics.selectedBorderWidth
             : Metrics.borderWidth
         borderView.layer?.borderColor = (
             isDragTarget
                 ? NSColor.controlAccentColor
-                : NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1)
+                : isSelected
+                    ? NSColor.controlAccentColor.withAlphaComponent(selectionBorderAlpha)
+                    : NSColor(calibratedWhite: 0.28, alpha: 1)
         ).cgColor
     }
 
