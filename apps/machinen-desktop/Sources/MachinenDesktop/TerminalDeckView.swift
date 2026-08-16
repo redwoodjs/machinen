@@ -8,6 +8,7 @@ final class TerminalDeckView: NSView {
         let duration: TimeInterval
         let startAlpha: CGFloat
         let targetAlpha: CGFloat
+        let performanceID: PerformanceMonitor.SpanID?
         let completion: (@MainActor () -> Void)?
     }
 
@@ -202,6 +203,7 @@ final class TerminalDeckView: NSView {
     private var peekCameraBounds: NSRect?
     private var labelBuffer = ""
     private var isShuttingDown = false
+    private var appliesAuthoritativeScene = false
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
     private var newWorkspaceEntry: NewWorkspaceEntry?
@@ -227,6 +229,7 @@ final class TerminalDeckView: NSView {
     private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
     private var twoFingerCameraSwipe: TwoFingerCameraSwipe?
+    private var modifiedCameraScroll: TwoFingerCameraSwipe?
     private var directTrackpadSwipe: DirectTrackpadSwipe?
     private var gestureEventMonitor: Any?
     private var suppressGestureEventsUntil: TimeInterval = 0
@@ -353,7 +356,21 @@ final class TerminalDeckView: NSView {
         }
         allowedTouchTypes = [.indirect]
         wantsRestingTouches = true
-        enterSoleTerminalIfNeeded()
+        if let workspaceID = state.selectedWorkspaceID,
+           let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID })
+        {
+            selectedIndex = workspaceIndex
+            if state.uiLevel == "workspace" || state.uiLevel == "terminal" {
+                currentWorkspace = workspaceID
+                let tiles = activeSessionTiles(for: workspaceID)
+                selectedIndex = state.selectedTerminalID.flatMap { terminalID in
+                    tiles.firstIndex { $0.session.id == terminalID }
+                } ?? 0
+                focusedIndex = state.uiLevel == "terminal" ? selectedIndex : nil
+            }
+        } else {
+            enterSoleTerminalIfNeeded()
+        }
         updateSelection()
         refreshRegisteredTargets(force: true)
         setAccessibilityElement(false)
@@ -382,8 +399,10 @@ final class TerminalDeckView: NSView {
             matching: [.scrollWheel, .swipe]
         ) { [weak self] event in
             guard let self, event.window === self.window else { return event }
+            PerformanceMonitor.shared.recordGestureInput(event)
             switch event.type {
             case .scrollWheel:
+                if self.processModifiedCameraScroll(event) { return nil }
                 return self.processTwoFingerScroll(event) ? nil : event
             case .swipe:
                 return self.processThreeFingerSwipe(event) ? nil : event
@@ -532,7 +551,6 @@ final class TerminalDeckView: NSView {
         terminalView.onStateChange = { [weak self, weak tile] state in
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.transition(to: state, terminalText: tile.session.terminalText)
-            self.saveSessions()
             self.refreshStatusBar()
             self.emitAPIEvent("terminal.stateChanged", data: self.terminalJSON(tile))
         }
@@ -571,7 +589,6 @@ final class TerminalDeckView: NSView {
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.updateRuntimeLabel(label)
             self.refreshStatusBar()
-            self.saveSessions()
             self.emitAPIEvent("terminal.labelChanged", data: self.terminalJSON(tile))
         }
         terminalView.onWorkingDirectoryChange = { [weak self, weak tile] directory in
@@ -580,7 +597,6 @@ final class TerminalDeckView: NSView {
             else { return }
             tile.session.currentWorkingDirectory = directory
             self.refreshStatusBar()
-            self.saveSessions()
             self.emitAPIEvent("terminal.workingDirectoryChanged", data: self.terminalJSON(tile))
         }
         terminalView.onOutput = { [weak self, weak tile] data in
@@ -622,12 +638,162 @@ final class TerminalDeckView: NSView {
     }
 
     private func saveSessions() {
+        guard !appliesAuthoritativeScene else { return }
         sessionStore.save(MachinenStoredState(
             workspaces: persistedWorkspaces,
             sessions: persistedSessionTiles.map(\.session),
             workspaceLocationHistory: workspaceLocationHistory,
-            targetMachines: targetMachines
+            targetMachines: targetMachines,
+            selectedWorkspaceID: selectedWorkspaceID(),
+            selectedTerminalID: selectedSession()?.id,
+            uiLevel: currentWorkspace == nil ? "overview" : (focusedIndex == nil ? "workspace" : "terminal")
         ))
+    }
+
+    /// Replaces the local projection after the server accepts another client's scene.
+    func applyAuthoritativeScene(_ state: MachinenStoredState) {
+        appliesAuthoritativeScene = true
+        defer { appliesAuthoritativeScene = false }
+        if authoritativeStructureMatches(state) {
+            workspaceLocationHistory = state.workspaceLocationHistory
+            targetMachines = state.targetMachines
+            applyAuthoritativeSelection(state)
+            return
+        }
+
+        for task in pendingWorkspaceCloseTasks.values { task.cancel() }
+        pendingWorkspaceCloseTasks.removeAll()
+        pendingWorkspaceCloses.removeAll()
+        finalizingWorkspaceIDsByTarget.removeAll()
+        let previousTiles = persistedSessionTiles
+        let previousByID = Dictionary(uniqueKeysWithValues: previousTiles.map {
+            ($0.session.id, $0)
+        })
+        var retainedIDs = Set<String>()
+        var nextActive: [TerminalTileView] = []
+        var nextClosed: [String: RecentlyClosedTerminal] = [:]
+        for incoming in state.sessions {
+            let tile: TerminalTileView
+            if let existing = previousByID[incoming.id], existing.session.tileID == incoming.tileID {
+                tile = existing
+                updateSharedSession(existing.session, from: incoming)
+            } else {
+                tile = TerminalTileView(session: incoming)
+                installTile(tile)
+                installPersistentTerminal(in: tile)
+            }
+            retainedIDs.insert(incoming.id)
+            if let disconnectedAt = incoming.disconnectedAt {
+                tile.session.state = .detached
+                tile.detachTerminalViewer()
+                nextClosed[incoming.id] = RecentlyClosedTerminal(
+                    tile: tile,
+                    position: incoming.disconnectedPosition ?? state.sessions.count,
+                    disconnectedAt: disconnectedAt
+                )
+            } else {
+                nextActive.append(tile)
+                if recentlyClosedTerminals[incoming.id] != nil { tile.attachTerminal() }
+            }
+        }
+        for tile in previousTiles where !retainedIDs.contains(tile.session.id) {
+            tile.detachTerminalForApplicationExit()
+            tile.removeFromSuperview()
+        }
+        allSessionTiles = nextActive
+        recentlyClosedTerminals = nextClosed
+        workspaces = state.workspaces
+        workspaceLocationHistory = state.workspaceLocationHistory
+        targetMachines = state.targetMachines
+        rebuildWorkspaceClusters()
+        applyAuthoritativeSelection(state)
+        refreshRegisteredTargets(force: true)
+    }
+
+    private func updateSharedSession(
+        _ session: TerminalSession,
+        from incoming: TerminalSession
+    ) {
+        session.label = incoming.label
+        session.workspaceID = incoming.workspaceID
+        session.workspace = incoming.workspace
+        session.name = incoming.name
+        session.launch = incoming.launch
+        session.workspaceRoot = incoming.workspaceRoot
+        session.startsSessionIfMissing = incoming.startsSessionIfMissing
+        session.location = incoming.location
+        session.currentWorkingDirectory = incoming.currentWorkingDirectory
+        session.titleOverride = incoming.titleOverride
+        session.disconnectedAt = incoming.disconnectedAt
+        session.disconnectedPosition = incoming.disconnectedPosition
+        if incoming.state == .stopped || incoming.state == .exited {
+            session.state = incoming.state
+        }
+    }
+
+    private func applyAuthoritativeSelection(_ state: MachinenStoredState) {
+        let localLevel = currentWorkspace == nil
+            ? "overview"
+            : (focusedIndex == nil ? "workspace" : "terminal")
+        if selectedWorkspaceID() == state.selectedWorkspaceID,
+           selectedSession()?.id == state.selectedTerminalID,
+           localLevel == state.uiLevel
+        {
+            refreshStatusBar()
+            return
+        }
+        if let workspaceID = state.selectedWorkspaceID,
+           let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID })
+        {
+            selectedIndex = workspaceIndex
+            if state.uiLevel == "workspace" || state.uiLevel == "terminal" {
+                currentWorkspace = workspaceID
+                let tiles = activeSessionTiles(for: workspaceID)
+                selectedIndex = state.selectedTerminalID.flatMap { id in
+                    tiles.firstIndex { $0.session.id == id }
+                } ?? 0
+                focusedIndex = state.uiLevel == "terminal" ? selectedIndex : nil
+            } else {
+                currentWorkspace = nil
+                focusedIndex = nil
+            }
+        } else {
+            currentWorkspace = nil
+            selectedIndex = 0
+            focusedIndex = nil
+        }
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+        refreshStatusBar()
+    }
+
+    private func authoritativeStructureMatches(_ state: MachinenStoredState) -> Bool {
+        let currentWorkspaces = persistedWorkspaces.map {
+            [$0.id, $0.name, $0.location.kind.rawValue, $0.location.host ?? "", $0.location.path]
+        }
+        let nextWorkspaces = state.workspaces.map {
+            [$0.id, $0.name, $0.location.kind.rawValue, $0.location.host ?? "", $0.location.path]
+        }
+        guard currentWorkspaces == nextWorkspaces else { return false }
+        func key(_ session: TerminalSession) -> [String] {
+            let lifecycle = session.disconnectedAt != nil
+                ? "detached"
+                : (session.state == .stopped || session.state == .exited ? session.state.rawValue : "live")
+            let environment = session.launch.environment?.sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }.joined(separator: "\u{1f}") ?? ""
+            return [
+                session.id, session.tileID, session.label, session.workspaceID,
+                session.workspace, session.name, session.workspaceRoot,
+                session.startsSessionIfMissing.description,
+                session.location.kind.rawValue, session.location.host ?? "", session.location.path,
+                session.launch.kind.rawValue, session.launch.command ?? "",
+                session.launch.executable ?? "", session.launch.arguments?.joined(separator: "\u{1f}") ?? "",
+                environment, session.titleOverride ?? "", lifecycle,
+                session.disconnectedPosition.map(String.init) ?? "",
+            ]
+        }
+        return persistedSessionTiles.map { key($0.session) } == state.sessions.map(key)
     }
 
     private typealias RegisteredTargetLocation = (
@@ -1329,6 +1495,7 @@ final class TerminalDeckView: NSView {
     private func setCameraImmediately() {
         cameraAnimationTimer?.invalidate()
         cameraAnimationTimer = nil
+        PerformanceMonitor.shared.endSpan(cameraAnimation?.performanceID, outcome: "interrupted")
         cameraAnimation = nil
         isTransitioning = false
         endSpatialMinimapAnimation()
@@ -1349,10 +1516,24 @@ final class TerminalDeckView: NSView {
         completion: (@MainActor () -> Void)? = nil
     ) {
         statusPopoverView.dismiss()
+        PerformanceMonitor.shared.endSpan(cameraAnimation?.performanceID, outcome: "interrupted")
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
         let targetAlpha = requestedTargetAlpha ?? sceneView.alphaValue
+        let performanceID = PerformanceMonitor.shared.beginSpan(
+            "camera.animation",
+            intendedDuration: duration,
+            metadata: [
+                "start_width": Double(start.width),
+                "start_height": Double(start.height),
+                "target_width": Double(target.width),
+                "target_height": Double(target.height),
+            ]
+        )
+        // Camera state stays local during interaction. A remote state write here
+        // delayed every first frame and made independent viewers move together.
+        PerformanceMonitor.shared.markWorkStarted(performanceID)
         guard duration > 0, start.width > 0, start.height > 0,
               target.width > 0, target.height > 0
         else {
@@ -1361,6 +1542,7 @@ final class TerminalDeckView: NSView {
             isTransitioning = false
             refreshSpatialMinimap(cameraBounds: sceneView.bounds)
             restoreInputFocus()
+            PerformanceMonitor.shared.endSpan(performanceID)
             completion?()
             return
         }
@@ -1375,15 +1557,18 @@ final class TerminalDeckView: NSView {
             duration: duration,
             startAlpha: sceneView.alphaValue,
             targetAlpha: targetAlpha,
+            performanceID: performanceID,
             completion: completion
         )
+        let framesPerSecond = max(30, window?.screen?.maximumFramesPerSecond ?? 60)
         let timer = Timer(
-            timeInterval: 1 / 120,
+            timeInterval: 1 / Double(framesPerSecond),
             target: self,
             selector: #selector(stepCameraAnimation(_:)),
             userInfo: nil,
             repeats: true
         )
+        timer.tolerance = 1 / Double(framesPerSecond) * 0.05
         cameraAnimationTimer = timer
         RunLoop.main.add(timer, forMode: .common)
     }
@@ -1394,6 +1579,7 @@ final class TerminalDeckView: NSView {
             return
         }
         let now = ProcessInfo.processInfo.systemUptime
+        PerformanceMonitor.shared.markFrame(animation.performanceID)
         let elapsed = now - animation.startedAt
         let linearProgress = min(1, max(0, elapsed / animation.duration))
         let progress = cameraAnimationProgress(CGFloat(linearProgress))
@@ -1427,6 +1613,7 @@ final class TerminalDeckView: NSView {
         isTransitioning = false
         restoreInputFocus()
         needsDisplay = true
+        PerformanceMonitor.shared.endSpan(animation.performanceID)
         animation.completion?()
     }
 
@@ -1438,6 +1625,10 @@ final class TerminalDeckView: NSView {
             if let cameraAnimation {
                 sceneView.bounds = cameraAnimation.target
                 sceneView.alphaValue = cameraAnimation.targetAlpha
+                PerformanceMonitor.shared.endSpan(
+                    cameraAnimation.performanceID,
+                    outcome: "interrupted"
+                )
             }
             cameraAnimation = nil
             isTransitioning = false
@@ -1510,9 +1701,88 @@ final class TerminalDeckView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        if !processTwoFingerScroll(event) {
-            super.scrollWheel(with: event)
+        if processModifiedCameraScroll(event) { return }
+        if processTwoFingerScroll(event) { return }
+        super.scrollWheel(with: event)
+    }
+
+    private func processModifiedCameraScroll(_ event: NSEvent) -> Bool {
+        let requiredModifiers: NSEvent.ModifierFlags = [.command, .shift]
+        guard event.modifierFlags.intersection(requiredModifiers) == requiredModifiers else {
+            modifiedCameraScroll = nil
+            return false
         }
+        if event.momentumPhase != [] { return true }
+
+        let deviceDirection: CGFloat = event.isDirectionInvertedFromDevice ? -1 : 1
+        if !event.hasPreciseScrollingDeltas || event.phase == [] {
+            _ = performModifiedCameraScroll(
+                horizontal: event.scrollingDeltaX * deviceDirection,
+                vertical: event.scrollingDeltaY * deviceDirection,
+                pointerLocation: event.locationInWindow
+            )
+            return true
+        }
+
+        if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
+            modifiedCameraScroll = TwoFingerCameraSwipe()
+        }
+        if event.phase.contains(.changed) || event.phase.contains(.ended) {
+            if modifiedCameraScroll == nil { modifiedCameraScroll = TwoFingerCameraSwipe() }
+            modifiedCameraScroll?.horizontal += event.scrollingDeltaX * deviceDirection
+            modifiedCameraScroll?.vertical += event.scrollingDeltaY * deviceDirection
+        }
+        if event.phase.contains(.cancelled) {
+            modifiedCameraScroll = nil
+            return true
+        }
+        guard event.phase.contains(.ended), let scroll = modifiedCameraScroll else {
+            return true
+        }
+        modifiedCameraScroll = nil
+        guard let direction = cameraSwipeDirection(
+            horizontal: scroll.horizontal,
+            vertical: scroll.vertical,
+            threshold: CameraSwipe.twoFingerThreshold
+        ) else { return true }
+        _ = performCameraSwipe(
+            direction,
+            fingerCount: 3,
+            pointerLocation: event.locationInWindow
+        )
+        return true
+    }
+
+    @discardableResult
+    private func performModifiedCameraScroll(
+        horizontal: CGFloat,
+        vertical: CGFloat,
+        pointerLocation: NSPoint?
+    ) -> Bool {
+        guard max(abs(horizontal), abs(vertical)) > 0,
+              let direction = cameraSwipeDirection(
+                  horizontal: horizontal,
+                  vertical: vertical,
+                  threshold: 0
+              )
+        else { return false }
+        return performCameraSwipe(
+            direction,
+            fingerCount: 3,
+            pointerLocation: pointerLocation
+        )
+    }
+
+    @discardableResult
+    func performModifiedCameraScrollForTesting(
+        horizontal: CGFloat,
+        vertical: CGFloat
+    ) -> Bool {
+        performModifiedCameraScroll(
+            horizontal: horizontal,
+            vertical: vertical,
+            pointerLocation: nil
+        )
     }
 
     override func swipe(with event: NSEvent) {
@@ -3519,6 +3789,7 @@ final class TerminalDeckView: NSView {
         case .workspaceOverview: [.workspaceOverview]
         case .workspace: [.workspace, .workspaceOverview]
         case .terminal: [.terminal, .workspace, .workspaceOverview]
+        case .newLocation, .recentLocations: []
         }
     }
 
@@ -3544,6 +3815,8 @@ final class TerminalDeckView: NSView {
             "workspace · \(selectedWorkspace() ?? "unknown")"
         case .terminal:
             "terminal · \(selectedSession()?.name ?? "unknown") · \(selectedWorkspace() ?? "workspace")"
+        case .newLocation, .recentLocations:
+            "workspace location"
         }
     }
 
@@ -4714,6 +4987,8 @@ final class TerminalDeckView: NSView {
                         space: .workspaceOverview
                     ),
                 ]
+            case .newLocation, .recentLocations:
+                [PaletteCommand]()
             }
         }
     }
@@ -4819,7 +5094,7 @@ final class TerminalDeckView: NSView {
             expectedContext = .workspace
         case .terminal:
             expectedContext = .terminal
-        case .workspaceOverview:
+        case .workspaceOverview, .newLocation, .recentLocations:
             return nil
         }
         guard command.context == expectedContext,
@@ -4852,7 +5127,7 @@ final class TerminalDeckView: NSView {
                 + " · \(selectedWorkspace() ?? "workspace")"
         case .workspace:
             context = "workspace root · \(selectedWorkspace() ?? "workspace")"
-        case .workspaceOverview:
+        case .workspaceOverview, .newLocation, .recentLocations:
             parentPalette?.showStatus("That command group is not available here")
             return
         }
@@ -5070,8 +5345,8 @@ final class TerminalDeckView: NSView {
                 ? "ADD WORKSPACE · 1 OF 2"
                 : "NEW WORKSPACE · 1 OF 2",
             context: "choose a location",
-            placeholder: "Filter previous locations or choose Browse…",
-            defaultFooter: "Previous locations open directly · esc back",
+            placeholder: "Search workspace locations…",
+            defaultFooter: "Choose a new location or a recent workspace · esc back",
             commands: newWorkspaceLocationCommands()
         )
         palette.layer?.zPosition = 1_000
@@ -5083,9 +5358,7 @@ final class TerminalDeckView: NSView {
                 guard let location = command.location else { return }
                 self.choosePreviousWorkspaceLocation(location, from: palette)
             case .browseLocalWorkspaceLocation:
-                self.showNewWorkspaceLocalBrowser(
-                    path: FileManager.default.homeDirectoryForCurrentUser.path
-                )
+                self.showNewWorkspaceLocalBrowser(path: "/")
             case .chooseRemoteWorkspaceLocation:
                 self.showNewWorkspaceSSHHostPalette()
             case .back:
@@ -5131,11 +5404,30 @@ final class TerminalDeckView: NSView {
     }
 
     private func newWorkspaceLocationCommands() -> [PaletteCommand] {
-        var commands: [PaletteCommand] = []
+        var commands = [
+            PaletteCommand(
+                id: .browseLocalWorkspaceLocation,
+                title: "Choose a local folder…",
+                shortcut: "browse the full file system",
+                space: .newLocation
+            ),
+            PaletteCommand(
+                id: .chooseRemoteWorkspaceLocation,
+                title: "Choose a folder over SSH…",
+                shortcut: "starts in remote $HOME",
+                space: .newLocation
+            ),
+            PaletteCommand(
+                id: .back,
+                title: "Back…",
+                shortcut: "",
+                space: .newLocation
+            ),
+        ]
         var seen = Set<String>()
-        for location in workspaceLocationHistory + workspaces.map(\.location) {
+        for location in (workspaceLocationHistory + workspaces.map(\.location)) {
             let key = canonicalLocationKey(location)
-            guard seen.insert(key).inserted else { continue }
+            guard seen.insert(key).inserted, seen.count <= 10 else { continue }
             let users = workspaces.filter { canonicalLocationKey($0.location) == key }.map(\.name)
             let title = location.kind == .local
                 ? WorkspacePathSuggestions.displayLocalPath(location.path, prefersTilde: true)
@@ -5146,24 +5438,10 @@ final class TerminalDeckView: NSView {
                 shortcut: users.isEmpty
                     ? "previously selected"
                     : "used by \(users.joined(separator: ", "))",
+                space: .recentLocations,
                 location: location
             ))
         }
-        commands.append(PaletteCommand(
-            id: .browseLocalWorkspaceLocation,
-            title: "Browse local…",
-            shortcut: "starts in $HOME"
-        ))
-        commands.append(PaletteCommand(
-            id: .chooseRemoteWorkspaceLocation,
-            title: "Browse over SSH…",
-            shortcut: "starts in remote $HOME"
-        ))
-        commands.append(PaletteCommand(
-            id: .back,
-            title: "Back…",
-            shortcut: ""
-        ))
         return commands
     }
 
@@ -5238,10 +5516,6 @@ final class TerminalDeckView: NSView {
     }
 
     private func localBrowserParentPath(for path: String) -> String? {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        guard canonicalLocationKey(.local(path)) != canonicalLocationKey(.local(home)) else {
-            return nil
-        }
         let parent = URL(fileURLWithPath: path, isDirectory: true).deletingLastPathComponent().path
         return parent == path ? nil : parent
     }
@@ -8603,6 +8877,7 @@ final class TerminalDeckView: NSView {
         focusedIndex = nil
         updateSelection()
         setCameraImmediately()
+        saveSessions()
         return uiJSON()
     }
 

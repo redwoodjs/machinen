@@ -10,13 +10,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var commandChord: CommandChord?
     private var desktopShortcutMonitor: DesktopShortcutMonitor?
     private var interactionIntentEngine: InteractionIntentEngine?
+    private var sceneRefreshTimer: Timer?
+    private var sceneRefreshInFlight = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         InputRoutingLog.start()
         InputRoutingLog.log("application did finish launching")
         installMainMenu()
 
-        let sessionStore = TerminalSessionStore()
+        let configuration = MachinenConfiguration.load()
+        let serverAddress = MachinenServerAddress.resolve(savedSetting: configuration.server)
+        let sessionStore = TerminalSessionStore(serverAddress: serverAddress)
         let interactionIntentEngine = InteractionIntentEngine(url: InteractionIntentEngine.defaultURL)
         self.interactionIntentEngine = interactionIntentEngine
         let deck = TerminalDeckView(
@@ -65,13 +69,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.tabbingMode = .disallowed
         window.acceptsMouseMovedEvents = true
         self.window = window
+        PerformanceMonitor.shared.configure(window: window, contentView: deck)
         commandChord = CommandChord { [weak self, weak deck] in
             // A focused terminal owns its modifier gestures just like any
             // other input. The overview chord remains available outside tiles.
             guard !(self?.window?.firstResponder is MachinenTerminalView) else { return }
             deck?.toggleOverview()
         }
-        let configuration = MachinenConfiguration.load()
+        sceneRefreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) {
+            [weak self, weak deck, weak sessionStore] _ in
+            Task { @MainActor in
+                guard let self, !self.sceneRefreshInFlight, let deck, let sessionStore else {
+                    return
+                }
+                self.sceneRefreshInFlight = true
+                defer { self.sceneRefreshInFlight = false }
+                guard let state = await sessionStore.refresh() else { return }
+                deck.applyAuthoritativeScene(state)
+            }
+        }
         desktopShortcutMonitor = DesktopShortcutMonitor(
             shortcuts: configuration.shortcuts
         ) { [weak deck] action in
@@ -87,6 +103,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         desktopShortcutMonitor?.stop()
+        sceneRefreshTimer?.invalidate()
+        PerformanceMonitor.shared.stop()
         apiServer?.stop()
         desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
@@ -303,6 +321,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         debugItem.target = self
         viewMenu.addItem(debugItem)
+        viewMenu.addItem(.separator())
+        let performanceItem = NSMenuItem(
+            title: "Show Performance HUD",
+            action: #selector(togglePerformanceHUD),
+            keyEquivalent: "b"
+        )
+        performanceItem.keyEquivalentModifierMask = [.command, .option, .shift]
+        performanceItem.target = self
+        viewMenu.addItem(performanceItem)
+        let revealPerformanceLogItem = NSMenuItem(
+            title: "Reveal Performance Log",
+            action: #selector(revealPerformanceLog),
+            keyEquivalent: ""
+        )
+        revealPerformanceLogItem.target = self
+        viewMenu.addItem(revealPerformanceLogItem)
+        let clearPerformanceLogItem = NSMenuItem(
+            title: "Clear Performance Log",
+            action: #selector(clearPerformanceLog),
+            keyEquivalent: ""
+        )
+        clearPerformanceLogItem.target = self
+        viewMenu.addItem(clearPerformanceLogItem)
         viewItem.submenu = viewMenu
         mainMenu.addItem(viewItem)
 
@@ -341,6 +382,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if menuItem.action == #selector(showTerminalMenu) {
             return window?.firstResponder is MachinenTerminalView
+        }
+        if menuItem.action == #selector(togglePerformanceHUD) {
+            menuItem.state = PerformanceMonitor.shared.isEnabled ? .on : .off
         }
         return true
     }
@@ -424,5 +468,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func showDebugInformation() {
         deck?.showDebugInformation()
+    }
+
+    @objc private func togglePerformanceHUD() {
+        PerformanceMonitor.shared.toggle()
+    }
+
+    @objc private func revealPerformanceLog() {
+        PerformanceMonitor.shared.revealLog()
+    }
+
+    @objc private func clearPerformanceLog() {
+        PerformanceMonitor.shared.clearLog()
     }
 }

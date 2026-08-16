@@ -113,7 +113,7 @@ destructive verification, effect approval, and workspace ownership checks.
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
 
-`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. A two-finger swipe selects and pans between spatial tiles only in Navigate mode. Terminal mode keeps two-finger scroll for terminal history. Three-finger up and down swipes leave and enter camera levels. A down swipe enters the tile below the mouse pointer, or the highlighted tile when no tile is below it. Three-finger horizontal swipes pan between sibling objects. The camera follows finger distance without easing while the fingers stay down. The source focus and selection remain unchanged below 35 percent. At 35 percent, the target selection becomes active and the transition becomes releasable. Release at or above that point completes the transition. Continue a down gesture through the workspace to reach its first terminal tile. The second release point enters that terminal directly. An earlier release restores the source camera. Only the blue selection border fades across the gesture. The scene keeps full opacity. Desktop consumes all three-finger scroll events before a terminal receives them. A new swipe replaces active camera motion. No swipe changes terminal scrollback.
+`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. A two-finger swipe selects and pans between spatial tiles only in Navigate mode. Terminal mode keeps two-finger scroll for terminal history. Holding `⇧⌘` makes a mouse wheel or two-finger scroll act as a three-finger swipe. Three-finger up and down swipes leave and enter camera levels. A down swipe enters the tile below the mouse pointer, or the highlighted tile when no tile is below it. Three-finger horizontal swipes pan between sibling objects. The camera follows finger distance without easing while the fingers stay down. The source focus and selection remain unchanged below 35 percent. At 35 percent, the target selection becomes active and the transition becomes releasable. Release at or above that point completes the transition. Continue a down gesture through the workspace to reach its first terminal tile. The second release point enters that terminal directly. An earlier release restores the source camera. Only the blue selection border fades across the gesture. The scene keeps full opacity. Desktop consumes all three-finger scroll events before a terminal receives them. A new swipe replaces active camera motion. No swipe changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
 camera moves. Navigate mode shows a scaled version of that unchanged surface;
 it does not resize or reflow the terminal. Leaving Terminal mode therefore
@@ -123,7 +123,7 @@ When several Desktops view the same native session, the PTY keeps one
 controller-owned rows-by-columns grid. Watchers fit and letterbox that grid in
 their own differently sized tiles; they do not resize or reflow it. A lone
 viewer follows its own dimensions automatically. **Sessions…** labels
-the owner and offers **Control** to an attached watcher.
+the owner and offers **Control** to an attached watcher. A restarted Desktop restores control only for sessions that it controlled before shutdown.
 
 Machinen never interprets an unmodified Escape in Terminal mode. The byte goes
 directly to the PTY, so terminal programs retain their normal Escape behavior.
@@ -222,7 +222,10 @@ from this top-level menu dismisses it:
    tree. Session rows show this Desktop's attachment state, connected-client
    count, and control state. Return attaches or detaches normally; when this
    Desktop is an attached watcher, Return takes writer and resize control while
-   leaving the previous controller connected. Delete or `⌘W` kills the session.
+   leaving the previous controller connected. The first key, paste, or terminal
+   mouse input from a watcher also takes control, resizes the PTY to that view,
+   and then sends the input. Focus and text selection do not take control.
+   Delete or `⌘W` kills the session.
 7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
 
@@ -387,9 +390,17 @@ level that opened edit mode.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
 - The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the app-wide session browser with attachment, client, and control state. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills a selected session.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
-- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, discovery shows native workspaces and sessions on This Mac and explicitly used computers but does not reconstruct the spatial scene. The user must explicitly open a workspace and explicitly attach a session. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
+- Disconnected terminals persist across a Desktop restart. The configured Machinen server preserves one spatial scene for all Desktop clients. Native discovery does not reconstruct or replace that scene. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
 - In Navigate mode's workspace overview, `⌘W` still confirms before closing the workspace and killing all of its sessions.
 - Files in working directories are never deleted.
+
+## Performance benchmark
+
+Use **View → Show Performance HUD** or `⇧⌥⌘B` to toggle performance capture. The HUD shows UI pulse FPS, frame time, input delay, terminal echo delay, and main-thread stalls.
+
+Machinen writes structured JSON lines to `~/Library/Logs/Machinen/performance.jsonl`. The log contains input-to-frame samples, terminal input-to-output samples, camera animation spans, one-second metric snapshots, and stall events. It records key codes but never records typed text.
+
+Use **View → Reveal Performance Log** to locate the log. Use **View → Clear Performance Log** before a new comparison.
 
 ## Automated interaction check
 

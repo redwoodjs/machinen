@@ -177,6 +177,12 @@ protocol TerminalSessionBackend: AnyObject {
         completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
     )
     func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool
+    func resizeAsync(
+        _ session: TerminalSession,
+        columns: UInt16,
+        rows: UInt16,
+        completion: @escaping @MainActor @Sendable (Bool) -> Void
+    )
     func signal(_ signal: String, session: TerminalSession)
     func stop(_ session: TerminalSession)
     func reset(_ session: TerminalSession)
@@ -920,6 +926,31 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
               )
         else { return false }
         return TerminalSessionControl.run(invocation)
+    }
+
+    func resizeAsync(
+        _ session: TerminalSession,
+        columns: UInt16,
+        rows: UInt16,
+        completion: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        guard columns > 0, rows > 0,
+              let invocation = controlInvocation(
+                  "resize",
+                  session: session,
+                  trailingArguments: [
+                      "--columns", String(columns),
+                      "--rows", String(rows),
+                  ]
+              )
+        else {
+            completion(false)
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let succeeded = TerminalSessionControl.run(invocation)
+            DispatchQueue.main.async { completion(succeeded) }
+        }
     }
 
     func signal(_ signal: String, session: TerminalSession) {

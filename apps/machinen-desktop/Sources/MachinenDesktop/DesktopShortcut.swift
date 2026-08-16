@@ -3,9 +3,11 @@ import AppKit
 struct MachinenConfiguration {
     private struct FileContents: Codable {
         let shortcuts: [String: String]
+        let server: String?
     }
 
     let shortcuts: [DesktopShortcutAction: DesktopShortcutBinding]
+    let server: String?
 
     static var defaultURL: URL {
         let environment = ProcessInfo.processInfo.environment
@@ -23,7 +25,8 @@ struct MachinenConfiguration {
 
     static var defaults: MachinenConfiguration {
         MachinenConfiguration(
-            shortcuts: defaultShortcutStrings.compactMapValues(DesktopShortcutBinding.init)
+            shortcuts: defaultShortcutStrings.compactMapValues(DesktopShortcutBinding.init),
+            server: nil
         )
     }
 
@@ -61,7 +64,7 @@ struct MachinenConfiguration {
             }
             if updatedDefaults {
                 do {
-                    try write(FileContents(shortcuts: descriptions), to: url)
+                    try write(FileContents(shortcuts: descriptions, server: contents.server), to: url)
                 } catch {
                     NSLog("Machinen could not update config at %@: %@", url.path, String(describing: error))
                 }
@@ -79,7 +82,7 @@ struct MachinenConfiguration {
                 }
                 shortcuts[action] = binding
             }
-            return MachinenConfiguration(shortcuts: shortcuts)
+            return MachinenConfiguration(shortcuts: shortcuts, server: contents.server)
         } catch {
             NSLog("Machinen could not read config at %@: %@", url.path, String(describing: error))
             return defaults
@@ -120,7 +123,7 @@ struct MachinenConfiguration {
         let shortcuts = Dictionary(uniqueKeysWithValues: defaultShortcutStrings.map {
             ($0.key.rawValue, $0.value)
         })
-        try write(FileContents(shortcuts: shortcuts), to: url)
+        try write(FileContents(shortcuts: shortcuts, server: nil), to: url)
     }
 
     private static func write(_ contents: FileContents, to url: URL) throws {

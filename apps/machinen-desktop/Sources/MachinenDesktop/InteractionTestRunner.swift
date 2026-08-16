@@ -12,10 +12,24 @@ enum InteractionTestRunner {
                 print("Machinen renderer reconnect test passed")
                 return 0
             }
+            if ProcessInfo.processInfo.environment["MACHINEN_AUTHORITY_TESTS"] == "1" {
+                try authoritativeSceneStoreSerializesAllClients()
+                print("Machinen authority test passed")
+                return 0
+            }
+            if ProcessInfo.processInfo.environment["MACHINEN_TERMINAL_INPUT_TESTS"] == "1" {
+                try sharedSessionGeometryFollowsItsController()
+                try scrollWheelReachesFocusedTerminalThroughPreview()
+                try modifiedWheelEmulatesThreeFingerSwipe()
+                try performanceStatisticsCalculatePercentiles()
+                print("Machinen terminal input tests passed")
+                return 0
+            }
             try commandNEntersCreationTile()
             try interactionPolicyReloadsOnlyOnRequest()
             try mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
+            try authoritativeSceneStoreSerializesAllClients()
             try settingsFileIsAvailableInApplicationMenu()
             try commandArrowsMoveThroughTheHierarchy()
             try statusNavigationMenusSwitchAndZoomOut()
@@ -44,6 +58,8 @@ enum InteractionTestRunner {
             try terminalTileCaptionRendersWithSafeFonts()
             try ghosttyPreservesModifiedEnter()
             try scrollWheelReachesFocusedTerminalThroughPreview()
+            try modifiedWheelEmulatesThreeFingerSwipe()
+            try performanceStatisticsCalculatePercentiles()
             try pointerTilesSeparateClickFocusAndDrag()
             try singletonWorkspaceTileFillsSurface()
             try overviewUsesOnlyItsTopInset()
@@ -53,7 +69,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (41 scenarios)")
+            print("Machinen interaction tests passed (43 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -548,6 +564,79 @@ enum InteractionTestRunner {
             !externalDeck.subviews.contains(where: { $0 is MapEditOverlayView })
                 && (try harness.snapshot(of: externalDeck).tiles.count) == 2,
             "an externally added tile did not exit map edit mode"
+        )
+    }
+
+    private static func authoritativeSceneStoreSerializesAllClients() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-authority-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try AuthoritativeStore(databaseURL: root.appendingPathComponent("scene.sqlite3"))
+        try store.registerClient(id: "air", user: "test")
+        try store.registerClient(id: "mini", user: "test")
+        let first = try store.apply(
+            type: AuthoritativeSceneCommand.sceneKind,
+            recordID: AuthoritativeSceneCommand.sceneID,
+            data: Data("one".utf8),
+            clientID: "air",
+            idempotencyKey: "air-1"
+        )
+        let repeated = try store.apply(
+            type: AuthoritativeSceneCommand.sceneKind,
+            recordID: AuthoritativeSceneCommand.sceneID,
+            data: Data("one".utf8),
+            clientID: "air",
+            idempotencyKey: "air-1"
+        )
+        let second = try store.apply(
+            type: AuthoritativeSceneCommand.sceneKind,
+            recordID: AuthoritativeSceneCommand.sceneID,
+            data: Data("two".utf8),
+            clientID: "mini",
+            idempotencyKey: "mini-1"
+        )
+        let snapshot = try store.snapshot()
+        try expect(
+            first == repeated
+                && second.revision == first.revision + 1
+                && snapshot.revision == second.revision
+                && snapshot.records[AuthoritativeSceneCommand.sceneKind]?[AuthoritativeSceneCommand.sceneID]
+                    == Data("two".utf8),
+            "the authoritative scene did not serialize both Desktop clients"
+        )
+        if ProcessInfo.processInfo.environment["MACHINEN_STATE_DIR"] != nil {
+            let address = MachinenServerAddress(value: "unix://test")
+            let air = AuthoritativeSceneClient(address: address, clientID: "air-command")
+            let mini = AuthoritativeSceneClient(address: address, clientID: "mini-command")
+            let initial = try air.snapshot()
+            let firstRevision = try air.apply(
+                data: Data("shared-one".utf8),
+                idempotencyKey: "air-command-1",
+                expectedRevision: initial.revision
+            )
+            let observed = try mini.snapshot()
+            try expect(
+                observed.revision == firstRevision && observed.data == Data("shared-one".utf8),
+                "two Desktop clients did not read one command-backed scene"
+            )
+        }
+        try expect(
+            MachinenServerAddress.resolve(
+                commandOption: "ssh://command",
+                environment: ["MACHINEN_SERVER": "ssh://environment"],
+                savedSetting: "ssh://saved"
+            ).value == "ssh://command"
+                && MachinenServerAddress.resolve(
+                    commandOption: nil,
+                    environment: ["MACHINEN_SERVER": "ssh://environment"],
+                    savedSetting: "ssh://saved"
+                ).value == "ssh://environment"
+                && MachinenServerAddress.resolve(
+                    commandOption: nil,
+                    environment: [:],
+                    savedSetting: "ssh://saved"
+                ).value == "ssh://saved",
+            "the scene server selection order changed"
         )
     }
 
@@ -2268,6 +2357,14 @@ enum InteractionTestRunner {
                 && terminal.rendersAuthoritativeGrid,
             "the watcher did not preserve the controller's cell grid"
         )
+        let displayScale = MachinenTerminalView.aspectFitScale(
+            sourcePixels: pixels,
+            viewportPixels: (width: 2_400, height: 1_440)
+        )
+        try expect(
+            displayScale.width == 1 && displayScale.height < 1,
+            "the watcher did not center its wide authoritative terminal grid"
+        )
         terminal.ghosttyTitleChanged(
             "machinen.geometry:v1:149:42:9:\(session.viewerClientID):"
                 + "\(session.viewerClientID):1:149:42"
@@ -2297,6 +2394,22 @@ enum InteractionTestRunner {
         try expect(
             harness.takenControlSessionIDs.isEmpty,
             "focusing a watcher unexpectedly stole geometry control"
+        )
+
+        let controlKey = MachinenTerminalView.controlPreferenceKey(for: session.id)
+        UserDefaults.standard.set(true, forKey: controlKey)
+        defer { UserDefaults.standard.removeObject(forKey: controlKey) }
+        let restoringTerminal = MachinenTerminalView(
+            session: session,
+            terminalBackend: harness.backend,
+            telemetryProvider: { completion in completion(nil) }
+        )
+        restoringTerminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:239:59:11:99:\(session.viewerClientID):0:149:42"
+        )
+        try expect(
+            harness.takenControlSessionIDs == [session.id],
+            "the prior controller did not restore control after a restart"
         )
 
         harness.setAvailableSessions([
@@ -3261,6 +3374,42 @@ enum InteractionTestRunner {
         try expect(resolutions == 1, "an overlapping preview swallowed terminal scrolling")
     }
 
+    private static func performanceStatisticsCalculatePercentiles() throws {
+        let values = [10.0, 20.0, 30.0, 40.0]
+        try expect(
+            PerformanceStatistics.percentile(0.50, values: values) == 30
+                && PerformanceStatistics.percentile(0.95, values: values) == 40
+                && PerformanceStatistics.percentile(0.50, values: []) == 0,
+            "performance percentiles did not produce stable benchmark values"
+        )
+    }
+
+    private static func modifiedWheelEmulatesThreeFingerSwipe() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: 1)
+        try expect(
+            try harness.uiLevel(of: deck) == "workspace",
+            "command-shift-wheel did not emulate a three-finger down swipe"
+        )
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: 1)
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal",
+            "command-shift-wheel did not enter the selected terminal"
+        )
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: -1)
+        deck.performModifiedCameraScrollForTesting(horizontal: 0, vertical: -1)
+        try expect(
+            try harness.uiLevel(of: deck) == "overview",
+            "command-shift-wheel did not emulate three-finger up swipes"
+        )
+    }
+
     private static func pointerTilesSeparateClickFocusAndDrag() throws {
         let session = TerminalSession(
             id: "term_pointer",
@@ -4175,6 +4324,14 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
         completion(.success(()))
     }
     func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool { true }
+    func resizeAsync(
+        _ session: TerminalSession,
+        columns: UInt16,
+        rows: UInt16,
+        completion: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        completion(true)
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -4283,6 +4440,14 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
     func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool {
         resizedSessions.append((session.id, columns, rows))
         return true
+    }
+    func resizeAsync(
+        _ session: TerminalSession,
+        columns: UInt16,
+        rows: UInt16,
+        completion: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        completion(resize(session, columns: columns, rows: rows))
     }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}

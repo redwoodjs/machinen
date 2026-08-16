@@ -64,6 +64,14 @@ Mutations may include an `idempotencyKey`. Reusing a key during the same app
 run returns the first successful result. Reusing it for different parameters
 returns `conflict`.
 
+## Scene authority
+
+One configured Machinen server owns the complete Desktop scene. Every Desktop client loads and changes that same scene.
+
+The server address uses this selection order: `--server`, `MACHINEN_SERVER`, the saved `server` setting, then the local server. A remote address uses `ssh://<host>`. Desktop stops when the configured server is unavailable. It never falls back to a private scene.
+
+`terminals.json` is a one-time migration source. Desktop does not use it as an active shared-state store after server migration.
+
 ## Object hierarchy
 
 ```text
@@ -211,11 +219,11 @@ Every workspace has a stable ID and a unique, case-insensitive name. Machinen
 trims surrounding whitespace when creating or renaming a workspace. A workspace
 also has one mutable directory root, which may be shared by other explicitly
 identified workspaces. The native session store on the machine owning that root
-persists the workspace ID, name, root, and explicit session membership. Desktop's
-private manifest owns its local spatial scene. Registered targets are polled
-for native workspaces and sessions, but discovery never reconstructs a
-workspace, creates a tile, or attaches a viewer. Opening a discovered workspace
-or attaching a session is always explicit. A local location is
+persists the workspace ID, name, root, and explicit session membership. The
+configured Machinen server owns the spatial scene for every Desktop client.
+Registered targets are polled for native workspaces and sessions, but discovery
+never changes the server scene. Opening a discovered workspace or attaching a
+session is always explicit. A local location is
 `{ "kind": "local", "path": "/project" }`. A remote location is
 `{ "kind": "ssh", "host": "mini", "path": "/project" }`; `host` uses the
 user's OpenSSH configuration and may include a username. The legacy

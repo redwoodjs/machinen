@@ -5,12 +5,16 @@ struct PaletteCommand {
         case workspaceOverview
         case workspace
         case terminal
+        case newLocation
+        case recentLocations
 
         var title: String {
             switch self {
             case .workspaceOverview: "WORKSPACE OVERVIEW"
             case .workspace: "WORKSPACE"
             case .terminal: "TERMINAL"
+            case .newLocation: "NEW LOCATION"
+            case .recentLocations: "RECENT WORKSPACES"
             }
         }
     }
