@@ -172,10 +172,11 @@ frames into `machinen.geometry:v1` OSC title events containing the authoritative
 grid, generation, owner, this viewer's lease state, and its local grid.
 
 `attach --client-name <name>` supplies a recognizable label; Desktop does this
-automatically. `take --client-id <id>`
-atomically transfers both leases while leaving the previous controller attached
-as a watcher. Attach clients honor lease updates and discard keyboard input while
-watching.
+automatically. `take --client-id <id>` atomically transfers both leases while
+leaving the previous controller attached as a watcher. Attach clients honor
+lease updates and discard keyboard input while watching. `attach --take-on-input`
+queues the first input from a watcher, takes both leases, applies the local PTY
+size, and then sends the queued input. Desktop uses this mode for its viewers.
 
 Same-user `send`, `signal`, and `stop` operations use explicit control
 connections. They do not steal the interactive writer lease. Presence and take
