@@ -121,14 +121,14 @@ async function callLocal(payload: Payload): Promise<unknown> {
       op: operation,
       params,
     };
-    if (idempotencyKey) message.idempotencyKey = idempotencyKey;
+    if (idempotencyKey) {message.idempotencyKey = idempotencyKey;}
     socket.write(`${JSON.stringify(message)}\n`);
     while (true) {
       const next = await lines.next();
-      if (next.done) throw new Error("Machinen closed the API connection");
+      if (next.done) {throw new Error("Machinen closed the API connection");}
       const response = JSON.parse(next.value) as ResponseEnvelope;
       if (response.type === "response" && response.id === id) {
-        if (!response.ok) throw new Error(JSON.stringify(response.error ?? {}));
+        if (!response.ok) {throw new Error(JSON.stringify(response.error ?? {}));}
         return response.result;
       }
     }
@@ -190,8 +190,8 @@ async function main(): Promise<void> {
     ["-o", "BatchMode=yes", "-T", values.host, remoteNodeCommand(encoded)],
     { stdio: "inherit" },
   );
-  if (completed.error) throw completed.error;
-  if (completed.status !== 0) process.exitCode = completed.status ?? 1;
+  if (completed.error) {throw completed.error;}
+  if (completed.status !== 0) {process.exitCode = completed.status ?? 1;}
 }
 
 main().catch((error: unknown) => {

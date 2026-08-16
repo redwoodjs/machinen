@@ -115,7 +115,7 @@ function run(
     maxBuffer: 256 * 1024 * 1024,
     stdio: capture ? "pipe" : "inherit",
   });
-  if (completed.error) throw completed.error;
+  if (completed.error) {throw completed.error;}
   const status = completed.status ?? 1;
   const stdout = capture ? (completed.stdout ?? "") : "";
   const stderr = capture ? (completed.stderr ?? "") : "";
@@ -134,7 +134,7 @@ function hostRun(
   args: readonly string[] = [],
   options: { capture?: boolean; check?: boolean } = {},
 ): RunResult {
-  if (machine === "mini") return run(command, args, options);
+  if (machine === "mini") {return run(command, args, options);}
   return run("/usr/bin/ssh", [...SSH_BASE, AIR_HOST, commandText(command, args)], options);
 }
 
@@ -160,11 +160,11 @@ function sessionTerminalId(): string | undefined {
     });
     const line = result.stdout.trim();
     const match = line.match(/^\s*(\d+)\s+([\s\S]*)$/);
-    if (!match) break;
+    if (!match) {break;}
     const command = match[2];
     if (command.includes("machinen-session") && ` ${command} `.includes(" new ")) {
       const id = command.match(/(?:^|\s)--id(?:\s+|=)([^\s]+)/)?.[1];
-      if (id) return id;
+      if (id) {return id;}
     }
     pid = Number(match[1]);
   }
@@ -184,7 +184,7 @@ function snapshot(machine: Machine): Record<string, unknown> | undefined {
     ],
     { capture: true, check: false },
   );
-  if (result.status !== 0) return undefined;
+  if (result.status !== 0) {return undefined;}
   try {
     const parsed: unknown = JSON.parse(result.stdout);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -199,7 +199,7 @@ function snapshotHasTerminal(
   value: Record<string, unknown> | undefined,
   terminalId: string,
 ): boolean {
-  if (!value || !Array.isArray(value.terminals)) return false;
+  if (!value || !Array.isArray(value.terminals)) {return false;}
   return value.terminals.some(
     (terminal) =>
       terminal &&
@@ -239,12 +239,12 @@ done
   const processes: AppProcess[] = [];
   for (const line of result.stdout.split("\n")) {
     const separator = line.indexOf("\t");
-    if (separator < 1) continue;
+    if (separator < 1) {continue;}
     const pid = Number(line.slice(0, separator));
     const command = line.slice(separator + 1);
     const bundle = command.match(/(.+?\/Machinen\.app)\/Contents\/MacOS\/Machinen(?:\s|$)/)?.[1];
-    if (!Number.isInteger(pid) || !bundle || !pathIsProjectBundle(bundle)) continue;
-    if (bundleIdentifier(machine, bundle) !== BUNDLE_ID) continue;
+    if (!Number.isInteger(pid) || !bundle || !pathIsProjectBundle(bundle)) {continue;}
+    if (bundleIdentifier(machine, bundle) !== BUNDLE_ID) {continue;}
     processes.push({ pid, bundle });
   }
   return processes;
@@ -310,7 +310,7 @@ function automaticTarget(): Target {
   const running = new Map<Machine, string>();
   for (const machine of ["mini", "air"] as const) {
     const bundle = oneRunningBundle(machine);
-    if (bundle) running.set(machine, bundle);
+    if (bundle) {running.set(machine, bundle);}
   }
   if (running.size === 1) {
     const [machine, bundle] = [...running.entries()][0];
@@ -337,7 +337,7 @@ function gitBuffer(args: readonly string[]): Buffer {
     encoding: "buffer",
     maxBuffer: 256 * 1024 * 1024,
   });
-  if (completed.error) throw completed.error;
+  if (completed.error) {throw completed.error;}
   if (completed.status !== 0) {
     throw new RebuildError(
       `git ${args.join(" ")} failed: ${completed.stderr.toString("utf8").trim()}`,
@@ -402,7 +402,7 @@ function emptyHistory(): History {
 }
 
 function loadHistory(): History {
-  if (!existsSync(HISTORY_PATH)) return emptyHistory();
+  if (!existsSync(HISTORY_PATH)) {return emptyHistory();}
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(HISTORY_PATH, "utf8"));
@@ -495,7 +495,7 @@ function verifyBundle(machine: Machine, bundle: string): BundleInfo {
 
 function cachedBuild(state: SourceState): BuildArtifact | undefined {
   const path = join(BUILDS_DIR, state.buildId, "Machinen.app");
-  if (!existsSync(path)) return undefined;
+  if (!existsSync(path)) {return undefined;}
   let info: BundleInfo;
   try {
     info = verifyBundle("mini", path);
@@ -513,7 +513,7 @@ function cachedBuild(state: SourceState): BuildArtifact | undefined {
 }
 
 function pruneBuildCache(): void {
-  if (!existsSync(BUILDS_DIR)) return;
+  if (!existsSync(BUILDS_DIR)) {return;}
   const directories = readdirSync(BUILDS_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
     .map((entry) => join(BUILDS_DIR, entry.name))
@@ -629,7 +629,7 @@ async function waitForPidsToExit(
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutSeconds * 1_000;
   while (Date.now() < deadline) {
-    if (pidsAlive(machine, pids).length === 0) return true;
+    if (pidsAlive(machine, pids).length === 0) {return true;}
     await delay(250);
   }
   return pidsAlive(machine, pids).length === 0;
@@ -637,7 +637,7 @@ async function waitForPidsToExit(
 
 async function stopBundle(machine: Machine, bundle: string, graceful: boolean): Promise<void> {
   const pids = appPidsForBundle(machine, bundle);
-  if (pids.length === 0) return;
+  if (pids.length === 0) {return;}
   if (graceful) {
     const quit = hostRun(
       machine,
@@ -645,19 +645,19 @@ async function stopBundle(machine: Machine, bundle: string, graceful: boolean): 
       ["-e", `tell application id "${BUNDLE_ID}" to quit`],
       { check: false, capture: true },
     );
-    if (quit.status === 0 && (await waitForPidsToExit(machine, pids, 10))) return;
+    if (quit.status === 0 && (await waitForPidsToExit(machine, pids, 10))) {return;}
   }
   for (const [signal, timeout] of [
     ["-TERM", 5],
     ["-KILL", 2],
   ] as const) {
     const alive = pidsAlive(machine, pids);
-    if (alive.length === 0) return;
+    if (alive.length === 0) {return;}
     hostRun(machine, "/bin/kill", [signal, ...alive.map(String)], {
       check: false,
       capture: true,
     });
-    if (await waitForPidsToExit(machine, alive, timeout)) return;
+    if (await waitForPidsToExit(machine, alive, timeout)) {return;}
   }
   throw new RebuildError(`Machinen Desktop would not stop on ${machine}`);
 }
@@ -674,7 +674,7 @@ async function waitForLaunch(
   const deadline = Date.now() + timeoutSeconds * 1_000;
   while (Date.now() < deadline) {
     const pids = appPidsForBundle(machine, bundle);
-    if (pids[0]) return pids[0];
+    if (pids[0]) {return pids[0];}
     await delay(500);
   }
   throw new RebuildError(`Machinen Desktop did not launch from ${bundle} on ${machine}`);
@@ -683,7 +683,7 @@ async function waitForLaunch(
 async function waitForApi(machine: Machine, timeoutSeconds = 20): Promise<void> {
   const deadline = Date.now() + timeoutSeconds * 1_000;
   while (Date.now() < deadline) {
-    if (snapshot(machine)) return;
+    if (snapshot(machine)) {return;}
     await delay(500);
   }
   throw new RebuildError(`Machinen Desktop API did not become ready on ${machine}`);
@@ -825,8 +825,8 @@ async function buildAndRelaunch(
     } else {
       pending = pendingPath(target.bundle, token);
       console.log(`Staging cached build on ${target.machine}: ${pending}`);
-      if (target.machine === "mini") copyLocalBundle(artifact.path, pending);
-      else copyBundleToAir(artifact.path, pending, token);
+      if (target.machine === "mini") {copyLocalBundle(artifact.path, pending);}
+      else {copyBundleToAir(artifact.path, pending, token);}
       if (verifyBundle(target.machine, pending).cdhash !== artifact.info.cdhash) {
         throw new RebuildError("Staged bundle differs from the cached build");
       }
@@ -865,7 +865,7 @@ async function buildAndRelaunch(
       `Relaunched Machinen ${deployedInfo.version} (${deployedInfo.build}) on ${target.machine}; pid ${pid}; API ready; history: ${HISTORY_PATH}`,
     );
   } catch (error) {
-    if (pending) removeTargetPath(target.machine, pending);
+    if (pending) {removeTargetPath(target.machine, pending);}
     if (quitStarted && backup && targetExists(target.machine, backup)) {
       try {
         await restoreBackup(target.machine, target.bundle, backup);
@@ -888,7 +888,7 @@ function printHistory(): void {
   const history = loadHistory();
   console.log(`History: ${HISTORY_PATH}`);
   console.log("Builds:");
-  if (history.builds.length === 0) console.log("  none");
+  if (history.builds.length === 0) {console.log("  none");}
   for (const entry of history.builds.slice(0, 20)) {
     const artifactPath = String(entry.artifactPath ?? "");
     const retained = artifactPath && existsSync(artifactPath) ? "cached" : "metadata only";
@@ -897,7 +897,7 @@ function printHistory(): void {
     );
   }
   console.log("Relaunches:");
-  if (history.relaunches.length === 0) console.log("  none");
+  if (history.relaunches.length === 0) {console.log("  none");}
   for (const entry of history.relaunches.slice(0, 20)) {
     console.log(
       `  ${entry.at ?? "unknown"}  ${entry.targetMachine ?? "?"}  ${entry.deployed ? "deployed" : "relaunch only"}  ${entry.bundlePath ?? "?"}`,
