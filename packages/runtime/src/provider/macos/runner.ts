@@ -6,13 +6,12 @@
 // process and its status file.
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { arch as osArch, platform as osPlatform } from "node:os";
 import { join } from "node:path";
 
 import { BootError } from "../../errors.ts";
-import { readProcessIdentity } from "../../pid-validate.ts";
 import type { MacosBundle } from "./config.ts";
 
 const require_ = createRequire(import.meta.url);
@@ -102,30 +101,4 @@ export function spawnRunner(opts: RunnerSpawnOptions): SpawnedRunner {
     throw new BootError("PROVIDER_READINESS_FAILED", "macOS runner failed to spawn.");
   }
   return { child, pid, statusPath, providerRef: opts.bundle.path };
-}
-
-/**
- * Identity snapshot for the registry, so a later `attach()` can tell a
- * recycled PID from the real runner.
- */
-export function runnerProcessIdentity(
-  pid: number,
-): { exeBase: string; startedAtMs?: number } | undefined {
-  return readProcessIdentity(pid);
-}
-
-export function removeRunnerState(stateDir: string): void {
-  rmSync(stateDir, { recursive: true, force: true });
-}
-
-/** Last-resort read of the runner's own reported version. */
-export function readRunnerVersion(binary: string): string | undefined {
-  if (!existsSync(binary)) {
-    return undefined;
-  }
-  try {
-    return readFileSync(`${binary}.version`, "utf8").trim();
-  } catch {
-    return undefined;
-  }
 }

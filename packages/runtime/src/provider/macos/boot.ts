@@ -121,46 +121,37 @@ export async function bootMacosGuest(
   }
 }
 
+const LINUX_ONLY_MACOS_OPTIONS: ReadonlyArray<{
+  name: string;
+  present: (opts: BootOptions) => boolean;
+}> = [
+  { name: "snapshot", present: (o) => o.snapshot !== undefined && o.snapshot !== false },
+  { name: "mount", present: (o) => o.mount !== undefined },
+  { name: "liveMounts", present: (o) => (o.liveMounts ?? []).length > 0 },
+  { name: "portForward", present: (o) => (o.portForward ?? []).length > 0 },
+  { name: "nested", present: (o) => Boolean(o.nested) },
+  { name: "rootDisk", present: (o) => o.rootDisk !== undefined },
+  { name: "kernel/dtb", present: (o) => o.kernel !== undefined || o.dtb !== undefined },
+  { name: "image", present: (o) => o.image !== undefined },
+  { name: "cmd", present: (o) => (o.cmd ?? []).length > 0 },
+];
+
 /**
  * Refuse Linux-only options before spawning. Silently ignoring them would
  * produce a guest that does not match what the caller asked for.
  */
 function rejectLinuxOnlyOptions(opts: BootOptions): void {
-  const rejected: string[] = [];
-  if (opts.snapshot !== undefined && opts.snapshot !== false) {
-    rejected.push("snapshot");
+  const rejected = LINUX_ONLY_MACOS_OPTIONS.filter((entry) => entry.present(opts)).map(
+    (entry) => entry.name,
+  );
+  if (rejected.length === 0) {
+    return;
   }
-  if (opts.mount !== undefined) {
-    rejected.push("mount");
-  }
-  if (opts.liveMounts !== undefined && opts.liveMounts.length > 0) {
-    rejected.push("liveMounts");
-  }
-  if (opts.portForward !== undefined && opts.portForward.length > 0) {
-    rejected.push("portForward");
-  }
-  if (opts.nested) {
-    rejected.push("nested");
-  }
-  if (opts.rootDisk !== undefined) {
-    rejected.push("rootDisk");
-  }
-  if (opts.kernel !== undefined || opts.dtb !== undefined) {
-    rejected.push("kernel/dtb");
-  }
-  if (opts.image !== undefined) {
-    rejected.push("image");
-  }
-  if (opts.cmd !== undefined && opts.cmd.length > 0) {
-    rejected.push("cmd");
-  }
-  if (rejected.length > 0) {
-    throw new BootError(
-      "PROVIDER_UNSUPPORTED_OPERATION",
-      `guestOS "macos" does not support ${rejected.join(", ")}. ` +
-        "A macOS guest boots a prepared bundle and is driven over SSH.",
-    );
-  }
+  throw new BootError(
+    "PROVIDER_UNSUPPORTED_OPERATION",
+    `guestOS "macos" does not support ${rejected.join(", ")}. ` +
+      "A macOS guest boots a prepared bundle and is driven over SSH.",
+  );
 }
 
 async function assertSshReady(
