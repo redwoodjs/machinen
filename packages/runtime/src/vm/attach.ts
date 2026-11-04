@@ -6,6 +6,7 @@ import { readBalloonStats } from "../balloon-stats.ts";
 import { ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
 import type { OnLog } from "../log.ts";
+import { attachMacosGuest } from "../provider/macos/attach.ts";
 import { signalProcessNative } from "../native/process-signal.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import { findEntry, isAlive, writeEntry } from "../registry.ts";
@@ -34,6 +35,14 @@ export interface AttachOptions {
    * called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
    */
   onLog?: OnLog;
+  /**
+   * SSH identity file for a macOS guest. Not persisted in the registry,
+   * so an attach handle needs it supplied again. Falls back to
+   * `MACHINEN_MACOS_SSH_KEY`.
+   */
+  identityFile?: string;
+  /** SSH user for a macOS guest. Defaults to the persisted endpoint user. */
+  sshUser?: string;
 }
 
 /**
@@ -65,6 +74,13 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
     entry.name ?? "<unset>",
     entry.socketPath,
   );
+  if (entry.guestOS === "macos") {
+    return attachMacosGuest({
+      entry,
+      identityFile: opts.identityFile,
+      user: opts.sshUser,
+    });
+  }
   const { PassThrough } = await import("node:stream");
   const stdin = new PassThrough();
   const stdout = new PassThrough();
@@ -201,6 +217,7 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
   function buildAttachSnapshotContext(): SnapshotContext {
     return {
       pid: entry.pid,
+      guestOS: entry.guestOS,
       sourceName: entry.name,
       sourceImage: entry.imagePath,
       kernelPath: entry.kernelPath,

@@ -25,6 +25,7 @@ import { BootError, ErrorCode } from "../errors.ts";
 import { markPagemapsLazy } from "../lazy-pagemap.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { planRestoreImageNative } from "../native/restore-image.ts";
+import { selectProvider } from "../provider/select.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
@@ -127,6 +128,15 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
  *   bundle's `meta.liveMounts`.
  */
 export async function restore(opts: RestoreOptions): Promise<VmHandle> {
+  const selection = selectProvider(opts);
+  if (selection.guestOS === "macos") {
+    throw new BootError(
+      "PROVIDER_UNSUPPORTED_OPERATION",
+      "restore: a macOS guest cannot be restored from a snapshot bundle. " +
+        "Apple saved state is encrypted to the originating host and is not a " +
+        "portable Machinen bundle, and this provider implements no restore.",
+    );
+  }
   const snapDir = resolve(opts.snapDir);
   const selectedEngine = resolveSnapshotEngine();
   if (selectedEngine === "portable") {

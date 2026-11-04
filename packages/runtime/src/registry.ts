@@ -36,6 +36,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import debugLib from "debug";
 import { validatePid } from "./pid-validate.ts";
+import type { GuestCapabilities, GuestOS, ProviderId } from "./provider/types.ts";
 
 const debug = debugLib("machinen:registry");
 
@@ -168,6 +169,30 @@ export interface RegistryEntry {
    * env var).
    */
   statsPath?: string;
+  /**
+   * Guest OS this entry runs. Absent means `linux`, which covers every
+   * entry written before macOS guests existed, so readers must default
+   * rather than require it.
+   */
+  guestOS?: GuestOS;
+  /**
+   * Host-side provider that owns the guest. `machinen-hvf` and
+   * `machinen-kvm` are the in-repo microVM monitor; `apple-vz` is the
+   * Swift runner. Separate from `guestOS` so a Darwin host running a
+   * Linux guest stays distinguishable from a macOS guest.
+   */
+  provider?: ProviderId;
+  /**
+   * Provider-side reference needed to reload this guest. For `apple-vz`
+   * it is the absolute prepared-bundle path. Never holds secrets.
+   */
+  providerRef?: string;
+  /**
+   * What the owning provider actually implements, captured at boot so an
+   * `attach()` from another process can refuse unsupported operations
+   * without re-probing. Absent means Linux defaults.
+   */
+  capabilities?: GuestCapabilities;
   /**
    * Total pages the lazy-pages rewriter (#266) marked PE_LAZY when
    * the VM was restored. Set on restore-derived entries, undefined

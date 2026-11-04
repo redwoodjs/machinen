@@ -94,6 +94,77 @@ describe("registry primitives", () => {
     expect(readEntry(process.pid)).toEqual(entry);
   });
 
+  it("writeEntry → readEntry round-trips macOS provider metadata", () => {
+    const entry: RegistryEntry = {
+      pid: process.pid,
+      name: "macos-guest",
+      socketPath: "vmuser@192.168.64.4:22",
+      guestOS: "macos",
+      provider: "apple-vz",
+      providerRef: "/bundles/prepared",
+      capabilities: {
+        exec: true,
+        pty: true,
+        persistentSessions: false,
+        files: true,
+        snapshot: false,
+        fork: false,
+        restore: false,
+        clone: false,
+        mounts: false,
+        portForward: false,
+        memoryStats: false,
+        suspend: false,
+        install: false,
+      },
+      startedAt: 1_700_000_000_000,
+    };
+    writeEntry(entry);
+    expect(readEntry(process.pid)).toEqual(entry);
+  });
+
+  it("reads a legacy entry with no guest OS as Linux", () => {
+    const legacy = {
+      pid: process.pid,
+      name: "legacy-vm",
+      socketPath: "/tmp/legacy.sock",
+      startedAt: 1_700_000_000_000,
+    };
+    mkdirSync(join(scratchDir, String(process.pid)), { recursive: true });
+    writeFileSync(join(scratchDir, String(process.pid), "meta.json"), JSON.stringify(legacy));
+    const read = readEntry(process.pid);
+    expect(read?.guestOS).toBeUndefined();
+    expect(read?.name).toBe("legacy-vm");
+  });
+
+  it("lists a legacy entry without pruning it", () => {
+    const legacy = {
+      pid: process.pid,
+      name: "legacy-vm",
+      socketPath: "/tmp/legacy.sock",
+      startedAt: 1_700_000_000_000,
+    };
+    mkdirSync(join(scratchDir, String(process.pid)), { recursive: true });
+    writeFileSync(join(scratchDir, String(process.pid), "meta.json"), JSON.stringify(legacy));
+    const entries = list();
+    expect(entries.some((entry) => entry.pid === process.pid)).toBe(true);
+  });
+
+  it("keeps two macOS guests distinct by pid and name", () => {
+    const first: RegistryEntry = {
+      pid: process.pid,
+      name: "mac-a",
+      socketPath: "u@10.0.0.2:22",
+      guestOS: "macos",
+      provider: "apple-vz",
+      providerRef: "/bundles/a",
+      startedAt: 1,
+    };
+    writeEntry(first);
+    expect(readEntry(process.pid)?.providerRef).toBe("/bundles/a");
+    expect(readEntry(process.pid)?.name).toBe("mac-a");
+  });
+
   it("writeEntry → readEntry round-trips portForward", () => {
     const entry: RegistryEntry = {
       pid: process.pid,

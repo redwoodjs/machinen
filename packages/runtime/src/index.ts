@@ -103,6 +103,21 @@ export type {
   WriteFileOptions,
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
+export {
+  GUEST_OS_VALUES,
+  LINUX_CAPABILITIES,
+  MACOS_CAPABILITIES,
+  PROVIDER_VALUES,
+} from "./provider/types.ts";
+export type {
+  GuestCapabilities,
+  GuestOS,
+  GuestProviderInfo,
+  ProviderId,
+} from "./provider/types.ts";
+export { resolveGuestOS, resolveProviderId, selectProvider } from "./provider/select.ts";
+export type { ProviderSelection } from "./provider/select.ts";
+export type { MacosBootOptions, MacosSource, MacosSshOptions } from "./provider/macos/config.ts";
 
 export { probeNestedVirtualization } from "./nested-virt.ts";
 export {

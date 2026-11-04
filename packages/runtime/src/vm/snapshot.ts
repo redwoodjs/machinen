@@ -15,6 +15,8 @@ import { SnapshotError } from "../errors.ts";
 import type { VsockExecOptions, VsockExecResult } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import { PhaseTimer } from "../phase-timer.ts";
+import { assertSnapshotSupported } from "../provider/refusals.ts";
+import type { GuestOS } from "../provider/types.ts";
 import { reflinkCopy } from "../reflink.ts";
 import type {
   SnapshotMeta,
@@ -46,6 +48,8 @@ const debugVmstate = debugLib("machinen:vmstate");
 export interface SnapshotContext {
   /** PID of the host VMM process — used in debug logs. */
   pid: number;
+  /** Guest OS of the source VM. Absent means Linux. */
+  guestOS?: GuestOS;
   /** Optional source name (from `boot({ name })`); written into bundle meta.json. */
   sourceName?: string;
   /**
@@ -112,12 +116,7 @@ export interface SnapshotContext {
   };
   /** Persist the next parent pointer after a successful vmstate checkpoint. */
   updateVmstateChain?: (next: { parentDir: string; sequence: number }) => void;
-  /**
-   * True when the source VM exposed EL2 to its guest. Provider-level
-   * snapshots of this L1 are refused until nested KVM/HVF state capture
-   * is audited, so we never write a bundle that looks valid but cannot
-   * safely restore.
-   */
+  /** True when the source VM exposed EL2; provider snapshots are refused. */
   nested?: boolean;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   syncVmstateSnapshot?: (opts?: VsockExecOptions) => Promise<VsockExecResult> | undefined;
@@ -172,6 +171,7 @@ export async function performSnapshot(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
+  assertSnapshotSupported(ctx.guestOS, "snapshot");
   const engine = resolveSnapshotEngine();
   if (engine === "portable") {
     return performSnapshotPortable(ctx, opts);

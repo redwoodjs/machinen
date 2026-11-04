@@ -36,6 +36,11 @@ import { planBootMountDiskFdEnvNative } from "../native/boot-plan.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
+import { bootMacosGuest } from "../provider/macos/boot.ts";
+import { selectProvider } from "../provider/select.ts";
+import type { GuestOS, ProviderId } from "../provider/types.ts";
+import type { MacosBootOptions } from "../provider/macos/config.ts";
+import { buildLinuxRegistryEntry } from "./registry-entry.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { setupKernelDtbEnv } from "./boot-assets.ts";
 import { planBootCore } from "./boot-core-plan.ts";
@@ -51,7 +56,6 @@ import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
 import { validateBatchLiveMounts, withBatchLiveMountSync } from "./live-mount-batch.ts";
 import type { BootResourcesOptions } from "./memory-resources.ts";
-import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
   buildWriteFileCmds,
@@ -364,6 +368,30 @@ export interface BootOptions {
    * the registry entry stays live, the vsock UDS is still listening.
    */
   detached?: boolean;
+  /**
+   * Guest operating system to run. Defaults to `"linux"`, which is the
+   * only behavior every existing caller gets.
+   *
+   * `"macos"` selects the `apple-vz` provider: a prepared macOS VM bundle
+   * booted by the signed Swift runner, with SSH as the guest transport.
+   * That path skips Linux asset resolution entirely — no kernel, DTB,
+   * initramfs, ext4 rootdisk, gvproxy, or vsock setup runs.
+   *
+   * macOS guests cannot be snapshotted, forked, or restored, and their
+   * PTY is a per-connection SSH PTY rather than a Machinen persistent
+   * session. Those calls fail with `PROVIDER_UNSUPPORTED_OPERATION`.
+   */
+  guestOS?: GuestOS;
+  /**
+   * Explicit provider override. Omit it and the provider follows from
+   * `guestOS` and the host, which preserves the pre-existing Linux
+   * selection exactly.
+   */
+  provider?: ProviderId;
+  /**
+   * macOS provider configuration. Required when `guestOS` is `"macos"`.
+   */
+  macos?: MacosBootOptions;
 }
 
 type MountDiskPaths = {
@@ -387,6 +415,13 @@ type MountDiskPaths = {
  */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   validateBootStdio(opts);
+  // Provider selection runs before any Linux asset work. Swapping only the
+  // VMM binary would still resolve a kernel, DTB, and rootfs, which a macOS
+  // guest has no use for.
+  const selection = selectProvider(opts);
+  if (selection.guestOS === "macos") {
+    return bootMacosGuest(opts, selection);
+  }
   const bootT0 = Date.now();
   // #221: per-phase wall-clock timeline emitted as one line under
   // DEBUG=machinen:boot once the VMM produces its first console byte.
@@ -1264,66 +1299,7 @@ function registerInRegistry(args: RegisterArgs): boolean {
 }
 
 function buildRegistryEntry(args: RegisterArgs) {
-  const processPlan = registryProcessPlan(args);
-  return {
-    pid: args.childPid,
-    name: args.vmName,
-    socketPath: args.vsockUdsPath,
-    imagePath: args.sourceImageAbs,
-    kernelPath: args.kernelPath,
-    dtbPath: args.dtbPath,
-    rootDiskPath: args.rootDiskPath,
-    rootDiskMode: args.rootDiskMode,
-    diskPath: args.diskPath,
-    forkedFrom: args.forkedFrom,
-    bootLogPath: args.bootLogPath,
-    cleanupPaths: nonEmptyList(args.cleanupPaths),
-    vmmExe: processPlan.vmmExe,
-    gvproxyPid: args.gvPid,
-    gvproxyExe: processPlan.gvproxyExe,
-    portForward: registryPortForward(args.portForward),
-    memoryCeilingMib: args.memoryCeilingMib,
-    cpu: registryCpu(args.cpuPolicy, args.cpuControl),
-    statsPath: args.statsPath,
-    vmstatePath: args.vmstateStatePath,
-    vmstateChainId: args.vmstateChainId,
-    vmstateCheckpointParent: args.vmstateCheckpointParent,
-    vmstateCheckpointSequence: args.vmstateCheckpointSequence,
-    nested: args.nested || undefined,
-    mountDisk: registryMountDisk(args.mountDiskPaths),
-    liveMounts: registryLiveMounts(args.liveMountsResolved),
-    startedAt: Date.now(),
-  };
-}
-
-function nonEmptyList<T>(items: T[]): T[] | undefined {
-  return items.length > 0 ? items : undefined;
-}
-
-function registryProcessPlan(args: RegisterArgs): { vmmExe: string; gvproxyExe?: string } {
-  return {
-    vmmExe: process.platform === "darwin" && args.vmmPdeathsig ? args.vmmPdeathsig : args.binary,
-    gvproxyExe: args.gvExe,
-  };
-}
-
-function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
-  if (!mountDiskPaths) {
-    return undefined;
-  }
-  return {
-    guest: mountDiskPaths.guest,
-    lowerPath: mountDiskPaths.lowerPath,
-    upperPath: mountDiskPaths.upperPath,
-  };
-}
-
-function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
-  return nonEmptyList(liveMountsResolved.map(({ guest, host, mode }) => ({ guest, host, mode })));
-}
-
-function registryPortForward(portForward: NonNullable<BootOptions["portForward"]>) {
-  return nonEmptyList(portForward);
+  return buildLinuxRegistryEntry(args);
 }
 
 // #221/#233: stamp first-guest-byte and emit the boot timeline. Either
@@ -1636,6 +1612,7 @@ function buildBootSnapshotContext(
   });
   return {
     pid: args.childPid,
+    guestOS: "linux",
     sourceName: args.vmName,
     sourceImage: args.sourceImageAbs,
     rootDiskPath: args.rootDiskPath,

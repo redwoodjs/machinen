@@ -44,6 +44,7 @@ export {
 } from "./helpers.ts";
 export { type ImageConfig, readImageConfig, warmImageConfigCache } from "./image-config.ts";
 export { restore, type RestoreOptions } from "./restore.ts";
+export type { GuestOS, ProviderId, GuestCapabilities } from "../provider/types.ts";
 
 import {
   collect as _collect,
