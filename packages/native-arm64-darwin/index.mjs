@@ -34,6 +34,14 @@ export const winsize = join(here, "vmm", "bin", "machinen-winsize");
  */
 export const gvproxy = join(here, "vmm", "bin", "gvproxy");
 
+/**
+ * macOS Virtualization.framework runner. One process per macOS guest; the
+ * runtime spawns it, records its PID, and polls the status file it writes.
+ * Absent until `vz-runner/build.sh` has run, which the runtime reports as a
+ * missing-binary boot error rather than a silent fallback.
+ */
+export const vzRunner = join(here, "vz-runner", "bin", "machinen-vz-runner");
+
 // Guest ELFs and restore worker the runtime reads to build the
 // initramfs cpio at boot(). Read as data, never exec()d on the host.
 export const initPath = join(here, "vmm", "guest", "init");

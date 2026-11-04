@@ -18,3 +18,7 @@ vmm/guest/exec-agent
 # CI-staged on publish.
 mount-server/bin/machinen-mount-server
 mount-server/bin/machinen-mount-server.inputs-sha256
+
+# macOS VZ runner: locally built by vz-runner/build.sh, CI-staged on publish.
+vz-runner/bin/machinen-vz-runner
+vz-runner/bin/machinen-vz-runner.inputs-sha256

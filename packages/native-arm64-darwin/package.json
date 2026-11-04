@@ -17,6 +17,7 @@
     "machinen-runtime-helper": "./vmm/bin/machinen-runtime-helper",
     "machinen-session": "./vmm/bin/machinen-session",
     "machinen-vm": "./vmm/bin/machinen-vm",
+    "machinen-vz-runner": "./vz-runner/bin/machinen-vz-runner",
     "machinen-winsize": "./vmm/bin/machinen-winsize"
   },
   "files": [
@@ -26,7 +27,8 @@
     "e2fsprogs/lib/",
     "squashfs/bin/",
     "squashfs/lib/",
-    "index.mjs"
+    "index.mjs",
+    "vz-runner/bin/"
   ],
   "os": [
     "darwin"

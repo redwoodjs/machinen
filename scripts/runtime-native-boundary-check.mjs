@@ -19,6 +19,12 @@ const EXPECTED_HOST_BINS = {
   "machinen-winsize": "./vmm/bin/machinen-winsize",
 };
 
+// Host binaries that exist on only one platform. The VZ runner is a
+// Virtualization.framework client, so a Linux host package must not carry it.
+const PLATFORM_SCOPED_HOST_BINS = {
+  "machinen-vz-runner": { path: "./vz-runner/bin/machinen-vz-runner", platforms: ["darwin"] },
+};
+
 const EXPECTED_INDEX_EXPORTS = {
   binary: "machinen-vm",
   runtimeHelper: "machinen-runtime-helper",
@@ -33,6 +39,10 @@ const EXPECTED_INDEX_EXPORTS = {
   restorePath: "machinen-restore",
   mke2fs: "mke2fs",
   mksquashfs: "mksquashfs",
+};
+
+const PLATFORM_SCOPED_INDEX_EXPORTS = {
+  vzRunner: { marker: "machinen-vz-runner", platforms: ["darwin"] },
 };
 
 const ROOT_SHELL_MODULES = new Set([
@@ -78,6 +88,7 @@ const PROOF_OR_POLICY_MODULE_PATTERNS = [/^lazy-pagemap\.ts$/, /^move-pid-graph\
 
 const RUNTIME_TS_ROLE_RULES = [
   ["native-command-wrapper", (rel) => rel.startsWith("native/")],
+  ["guest-provider", (rel) => rel.startsWith("provider/")],
   ["helper-protocol-boundary", (rel) => rel === "native-helper.ts"],
   ["cli-supervisor-glue", (rel) => rel.startsWith("bin/")],
   ["public-api-shell", (rel) => ROOT_SHELL_MODULES.has(rel)],
@@ -173,23 +184,70 @@ function checkNativePackageManifests() {
     const pkgDir = join(ROOT, "packages", pkgName);
     const manifest = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
     const index = readFileSync(join(pkgDir, "index.mjs"), "utf8");
-    checkNativePackageBin(pkgName, manifest.bin ?? {});
-    checkNativePackageIndex(pkgName, index);
+    const platform = pkgName.endsWith("-darwin") ? "darwin" : "linux";
+    checkNativePackageBin(pkgName, manifest.bin ?? {}, platform);
+    checkNativePackageIndex(pkgName, index, platform);
   }
 }
 
-function checkNativePackageBin(pkgName, bin) {
-  for (const [binName, binPath] of Object.entries(EXPECTED_HOST_BINS)) {
+function checkNativePackageBin(pkgName, bin, platform) {
+  for (const [binName, binPath] of Object.entries(expectedBins(platform))) {
     if (bin[binName] !== binPath) {
       failures.push(`${pkgName}/package.json bin.${binName} must be ${binPath}`);
     }
   }
+  const present = forbiddenBins(platform).filter((binName) => bin[binName] !== undefined);
+  for (const binName of present) {
+    failures.push(`${pkgName}/package.json must not declare ${binName} on ${platform}`);
+  }
 }
 
-function checkNativePackageIndex(pkgName, index) {
-  for (const [exportName, marker] of Object.entries(EXPECTED_INDEX_EXPORTS)) {
+function expectedBins(platform) {
+  return { ...EXPECTED_HOST_BINS, ...platformBins(platform) };
+}
+
+function forbiddenBins(platform) {
+  return Object.entries(PLATFORM_SCOPED_HOST_BINS)
+    .filter(([, spec]) => !spec.platforms.includes(platform))
+    .map(([name]) => name);
+}
+
+function checkNativePackageIndex(pkgName, index, platform) {
+  const expected = { ...EXPECTED_INDEX_EXPORTS, ...platformMarkers(platform) };
+  for (const [exportName, marker] of Object.entries(expected)) {
     checkNativePackageIndexExport(pkgName, index, exportName, marker);
   }
+  for (const exportName of forbiddenExports(platform)) {
+    if (exportsName(index, exportName)) {
+      failures.push(`${pkgName}/index.mjs must not export ${exportName} on ${platform}`);
+    }
+  }
+}
+
+function forbiddenExports(platform) {
+  return Object.entries(PLATFORM_SCOPED_INDEX_EXPORTS)
+    .filter(([, spec]) => !spec.platforms.includes(platform))
+    .map(([name]) => name);
+}
+
+function platformBins(platform) {
+  return Object.fromEntries(
+    Object.entries(PLATFORM_SCOPED_HOST_BINS)
+      .filter(([, spec]) => spec.platforms.includes(platform))
+      .map(([name, spec]) => [name, spec.path]),
+  );
+}
+
+function platformMarkers(platform) {
+  return Object.fromEntries(
+    Object.entries(PLATFORM_SCOPED_INDEX_EXPORTS)
+      .filter(([, spec]) => spec.platforms.includes(platform))
+      .map(([name, spec]) => [name, spec.marker]),
+  );
+}
+
+function exportsName(index, exportName) {
+  return new RegExp(`export\\s+const\\s+${exportName}\\b`).test(index);
 }
 
 function checkNativePackageIndexExport(pkgName, index, exportName, marker) {
