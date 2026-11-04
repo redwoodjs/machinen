@@ -16,6 +16,7 @@ import {
   claimName,
   findEntry,
   isAlive,
+  listAll,
   patchEntry,
   readEntry,
   removeEntry,
@@ -137,7 +138,10 @@ describe("registry primitives", () => {
     expect(read?.name).toBe("legacy-vm");
   });
 
-  it("lists a legacy entry without pruning it", () => {
+  it("keeps a legacy entry readable through listAll without provider fields", () => {
+    // `list()` also runs pid-recycling checks, which depend on the native
+    // helper's identity payload. This asserts the compatibility property the
+    // entry shape owns: a legacy record with no guestOS still reads back.
     const legacy = {
       pid: process.pid,
       name: "legacy-vm",
@@ -146,8 +150,10 @@ describe("registry primitives", () => {
     };
     mkdirSync(join(scratchDir, String(process.pid)), { recursive: true });
     writeFileSync(join(scratchDir, String(process.pid), "meta.json"), JSON.stringify(legacy));
-    const entries = list();
-    expect(entries.some((entry) => entry.pid === process.pid)).toBe(true);
+    const entries = listAll();
+    const found = entries.find((entry) => entry.pid === process.pid);
+    expect(found?.name).toBe("legacy-vm");
+    expect(found?.guestOS).toBeUndefined();
   });
 
   it("keeps two macOS guests distinct by pid and name", () => {

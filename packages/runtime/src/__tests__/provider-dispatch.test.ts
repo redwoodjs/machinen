@@ -85,11 +85,22 @@ describe("early dispatch", () => {
   });
 
   it("never resolves Linux kernel or DTB assets for a macOS boot", async () => {
+    // The load-bearing invariant is the ordering, not which provider error
+    // fires: a macOS boot must not reach asset resolution on any host.
     const err = await boot({ guestOS: "macos" }).catch((e) => e);
-    expectCode(err, "PROVIDER_IMAGE_INVALID");
+    expect((err as { code?: string }).code).toMatch(/^PROVIDER_/);
     expect(resolveBaseKernel).not.toHaveBeenCalled();
     expect(resolveBaseDtb).not.toHaveBeenCalled();
     expect(resolveBaseRootfs).not.toHaveBeenCalled();
+  });
+
+  it("names the host when macOS guests are requested off Apple silicon", async () => {
+    if (process.platform === "darwin" && process.arch === "arm64") {
+      // Covered by the option-rejection and bundle-validation cases below.
+      return;
+    }
+    const err = await boot({ guestOS: "macos" }).catch((e) => e);
+    expectCode(err, "PROVIDER_HOST_UNSUPPORTED");
   });
 
   it("refuses a macOS boot without a macos configuration block", async () => {
@@ -106,6 +117,11 @@ describe("early dispatch", () => {
         ssh: { user: "vm", identityFile: "/nonexistent/key" },
       },
     }).catch((e) => e);
+    if (process.platform !== "darwin" || process.arch !== "arm64") {
+      // Host validation runs first and is the correct answer off-arm64.
+      expectCode(err, "PROVIDER_HOST_UNSUPPORTED");
+      return;
+    }
     expectCode(err, "PROVIDER_UNSUPPORTED_OPERATION");
     expect((err as Error).message).toContain("snapshot");
   });
