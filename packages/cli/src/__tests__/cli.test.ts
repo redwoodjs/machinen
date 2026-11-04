@@ -905,3 +905,60 @@ describe("extractTarget", () => {
     expect(() => extractTarget(["--bogus"], "exec")).toThrow(ParseError);
   });
 });
+
+describe("parseRunArgs --guest-os and macOS flags", () => {
+  it("defaults guestOS to undefined so Linux stays the runtime default", () => {
+    expect(parseRunArgs(["--", "/bin/true"]).guestOS).toBeUndefined();
+  });
+
+  it("accepts --guest-os macos", () => {
+    expect(parseRunArgs(["--guest-os", "macos"]).guestOS).toBe("macos");
+  });
+
+  it("accepts the =form", () => {
+    expect(parseRunArgs(["--guest-os=macos"]).guestOS).toBe("macos");
+  });
+
+  it("rejects an unknown guest OS and names the allowed values", () => {
+    expect(() => parseRunArgs(["--guest-os", "plan9"])).toThrow(ParseError);
+    expect(() => parseRunArgs(["--guest-os", "plan9"])).toThrow(/linux, macos/);
+  });
+
+  it("rejects an unknown provider and names the allowed values", () => {
+    expect(() => parseRunArgs(["--provider", "lume"])).toThrow(
+      /machinen-hvf, machinen-kvm, apple-vz/,
+    );
+  });
+
+  it("accepts --provider apple-vz", () => {
+    expect(parseRunArgs(["--provider", "apple-vz"]).provider).toBe("apple-vz");
+  });
+
+  it("captures the bundle and SSH flags", () => {
+    const parsed = parseRunArgs([
+      "--guest-os",
+      "macos",
+      "--macos-bundle",
+      "/bundles/prepared",
+      "--ssh-key",
+      "/keys/id",
+      "--ssh-user",
+      "vmuser",
+    ]);
+    expect(parsed.macosBundle).toBe("/bundles/prepared");
+    expect(parsed.sshIdentityFile).toBe("/keys/id");
+    expect(parsed.sshUser).toBe("vmuser");
+  });
+
+  it("rejects a duplicate --guest-os", () => {
+    expect(() => parseRunArgs(["--guest-os", "macos", "--guest-os", "linux"])).toThrow(ParseError);
+  });
+
+  it("keeps Linux parsing unchanged when no macOS flags appear", () => {
+    const parsed = parseRunArgs(["--name", "box", "--memory", "2048", "--", "/bin/sh"]);
+    expect(parsed.name).toBe("box");
+    expect(parsed.memory).toBe(2048);
+    expect(parsed.guestOS).toBeUndefined();
+    expect(parsed.macosBundle).toBeUndefined();
+  });
+});

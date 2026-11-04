@@ -35,6 +35,16 @@ interface ParsedRunArgs {
   snapshot?: string;
   /** Expose arm64 EL2 / `/dev/kvm` to the guest (`--nested`). */
   nested?: boolean;
+  /** Guest OS to run (`--guest-os linux|macos`). Defaults to linux. */
+  guestOS?: string;
+  /** Explicit provider override (`--provider machinen-hvf|machinen-kvm|apple-vz`). */
+  provider?: string;
+  /** Prepared macOS bundle directory (`--image` when guestOS is macos). */
+  macosBundle?: string;
+  /** SSH identity file for a macOS guest (`--ssh-key`). Never persisted. */
+  sshIdentityFile?: string;
+  /** SSH user for a macOS guest (`--ssh-user`). */
+  sshUser?: string;
   /** VM name registered for `attach` (`--name <name>`, default `default`). */
   name?: string;
   /**
@@ -77,6 +87,11 @@ type RunFlag =
   | "snapshot"
   | "nested"
   | "nestedValue"
+  | "guestOS"
+  | "provider"
+  | "macosBundle"
+  | "sshKey"
+  | "sshUser"
   | "guestCwd"
   | "name"
   | "detach"
@@ -101,6 +116,11 @@ interface RunParseState {
   seenHostPorts: Set<number>;
   snapshot?: string;
   nested: boolean;
+  guestOS?: string;
+  provider?: string;
+  macosBundle?: string;
+  sshIdentityFile?: string;
+  sshUser?: string;
   name?: string;
   guestCwd?: string;
   detached: boolean;
@@ -122,6 +142,11 @@ const RUN_VALUE_FLAGS = new Map<string, RunFlag>([
   ["--cpu-quota", "cpuQuota"],
   ["--cpu-weight", "cpuWeight"],
   ["--vcpus", "vcpus"],
+  ["--guest-os", "guestOS"],
+  ["--provider", "provider"],
+  ["--macos-bundle", "macosBundle"],
+  ["--ssh-key", "sshKey"],
+  ["--ssh-user", "sshUser"],
 ]);
 
 const RUN_BARE_FLAGS = new Map<string, RunFlag>([
@@ -139,6 +164,11 @@ const RUN_FLAG_HANDLERS: Record<RunFlag, RunFlagHandler> = {
   snapshot: handleRunSnapshot,
   nested: handleRunNested,
   nestedValue: handleRunNestedValue,
+  guestOS: handleRunGuestOS,
+  provider: handleRunProvider,
+  macosBundle: handleRunMacosBundle,
+  sshKey: handleRunSshKey,
+  sshUser: handleRunSshUser,
   guestCwd: handleRunGuestCwd,
   name: handleRunName,
   detach: handleRunDetach,
@@ -213,6 +243,11 @@ function finishRunArgs(state: RunParseState, double_dash_args: string[]): Parsed
     portForward: state.portForward.length > 0 ? state.portForward : undefined,
     snapshot: state.snapshot,
     nested: state.nested || undefined,
+    guestOS: state.guestOS,
+    provider: state.provider,
+    macosBundle: state.macosBundle,
+    sshIdentityFile: state.sshIdentityFile,
+    sshUser: state.sshUser,
     name: state.name ?? DEFAULT_VM_NAME,
     guestCwd: state.guestCwd,
     detached: state.detached || undefined,
@@ -280,6 +315,79 @@ function handleRunNested(
 
 function handleRunNestedValue(): number {
   throw new ParseError("PARSE_FLAG_MALFORMED", "--nested does not take a value");
+}
+
+const GUEST_OS_VALUES = ["linux", "macos"] as const;
+const PROVIDER_VALUES = ["machinen-hvf", "machinen-kvm", "apple-vz"] as const;
+
+function handleRunGuestOS(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.guestOS !== undefined, "--guest-os");
+  const { spec, next } = takeValue(flag, args, index, "a guest OS");
+  state.guestOS = requireEnum(spec, "--guest-os", GUEST_OS_VALUES);
+  return next;
+}
+
+function handleRunProvider(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.provider !== undefined, "--provider");
+  const { spec, next } = takeValue(flag, args, index, "a provider");
+  state.provider = requireEnum(spec, "--provider", PROVIDER_VALUES);
+  return next;
+}
+
+function handleRunMacosBundle(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.macosBundle !== undefined, "--macos-bundle");
+  const { spec, next } = takeValue(flag, args, index, "a bundle path");
+  state.macosBundle = spec;
+  return next;
+}
+
+function handleRunSshKey(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.sshIdentityFile !== undefined, "--ssh-key");
+  const { spec, next } = takeValue(flag, args, index, "a key path");
+  state.sshIdentityFile = spec;
+  return next;
+}
+
+function handleRunSshUser(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.sshUser !== undefined, "--ssh-user");
+  const { spec, next } = takeValue(flag, args, index, "a user name");
+  state.sshUser = spec;
+  return next;
+}
+
+function requireEnum<T extends string>(value: string, flag: string, allowed: readonly T[]): T {
+  if (!(allowed as readonly string[]).includes(value)) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `${flag} must be one of ${allowed.join(", ")} (got ${JSON.stringify(value)})`,
+    );
+  }
+  return value as T;
 }
 
 function handleRunGuestCwd(
