@@ -124,15 +124,25 @@
 - [`EnsureMountDiskUpperResult`](#ensuremountdiskupperresult)
 - [`EnsureRootfsImageOptions`](#ensurerootfsimageoptions)
 - [`ForkOptions`](#forkoptions)
+- [`GUEST_OS_VALUES`](#guest_os_values)
 - [`GcResult`](#gcresult)
+- [`GuestCapabilities`](#guestcapabilities)
+- [`GuestOS`](#guestos)
+- [`GuestProviderInfo`](#guestproviderinfo)
 - [`ImageConfig`](#imageconfig)
+- [`LINUX_CAPABILITIES`](#linux_capabilities)
 - [`LogEvent`](#logevent)
+- [`MACOS_CAPABILITIES`](#macos_capabilities)
 - [`MachinenErrorOptions`](#machinenerroroptions)
+- [`MacosBootOptions`](#macosbootoptions)
+- [`MacosSource`](#macossource)
+- [`MacosSshOptions`](#macossshoptions)
 - [`MemoryStats`](#memorystats)
 - [`NestedVirtProbeHost`](#nestedvirtprobehost)
 - [`NestedVirtProbeResult`](#nestedvirtproberesult)
 - [`OnLog`](#onlog)
 - [`OnOutputListener`](#onoutputlistener)
+- [`PROVIDER_VALUES`](#provider_values)
 - [`PackBundleOptions`](#packbundleoptions)
 - [`PackMinimalOptions`](#packminimaloptions)
 - [`PackRootfsOptions`](#packrootfsoptions)
@@ -140,6 +150,8 @@
 - [`PackWorkspaceOptions`](#packworkspaceoptions)
 - [`PhaseLogEvent`](#phaselogevent)
 - [`PidStatus`](#pidstatus)
+- [`ProviderId`](#providerid)
+- [`ProviderSelection`](#providerselection)
 - [`PtyBootOptions`](#ptybootoptions)
 - [`PtyVmHandle`](#ptyvmhandle)
 - [`RegistryEntry`](#registryentry)
@@ -172,10 +184,13 @@
 - [`resolveBaseDtb`](#resolvebasedtb)
 - [`resolveBaseKernel`](#resolvebasekernel)
 - [`resolveBaseRootfs`](#resolvebaserootfs)
+- [`resolveGuestOS`](#resolveguestos)
 - [`resolveMke2fs`](#resolvemke2fs)
 - [`resolveMksquashfs`](#resolvemksquashfs)
+- [`resolveProviderId`](#resolveproviderid)
 - [`resolveVmmBinary`](#resolvevmmbinary)
 - [`rootfsImgCacheDir`](#rootfsimgcachedir)
+- [`selectProvider`](#selectprovider)
 
 
 ## Classes
@@ -2656,6 +2671,202 @@ for arbitrary pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
+### MacosBootOptions
+
+Options accepted under `boot({ macos: ... })`.
+
+#### Properties
+
+##### source
+
+> **source**: [`MacosSource`](#macossource)
+
+Prepared VM bundle. A directory containing `config.json` and the
+disk image it names. This is the only source kind the MVP accepts.
+
+##### ssh
+
+> **ssh**: [`MacosSshOptions`](#macossshoptions)
+
+SSH transport settings. Key-based only.
+
+##### memoryMib?
+
+> `optional` **memoryMib?**: `number`
+
+Guest RAM in MiB. Defaults to 4096.
+
+##### cpuCount?
+
+> `optional` **cpuCount?**: `number`
+
+Guest vCPU count. Defaults to 4.
+
+***
+
+### MacosSshOptions
+
+#### Properties
+
+##### user
+
+> **user**: `string`
+
+Guest user name.
+
+##### identityFile
+
+> **identityFile**: `string`
+
+Private key path. Never written to the registry, never passed on a
+command line, and never logged.
+
+##### port?
+
+> `optional` **port?**: `number`
+
+Guest port. Defaults to 22.
+
+##### host?
+
+> `optional` **host?**: `string`
+
+Optional guest address override. Normally discovered from the runner.
+
+***
+
+### ProviderSelection
+
+#### Properties
+
+##### guestOS
+
+> **guestOS**: [`GuestOS`](#guestos-1)
+
+##### provider
+
+> **provider**: [`ProviderId`](#providerid)
+
+***
+
+### GuestCapabilities
+
+What a selected provider actually implements. Every field is a plain
+boolean so a caller can branch without probing, and so a capability the
+provider lacks fails at the call site with a typed error instead of
+degrading into a partial result.
+
+#### Properties
+
+##### exec
+
+> **exec**: `boolean`
+
+Run a one-shot command and return its streams plus exit code.
+
+##### pty
+
+> **pty**: `boolean`
+
+Open an interactive PTY. Ordinary SSH PTY is not a persistent session.
+
+##### persistentSessions
+
+> **persistentSessions**: `boolean`
+
+Named sessions that survive a disconnect and can be reattached.
+Distinct from `pty`, which is per-connection.
+
+##### files
+
+> **files**: `boolean`
+
+Push and pull files.
+
+##### snapshot
+
+> **snapshot**: `boolean`
+
+Whole-guest snapshot, including memory state.
+
+##### fork
+
+> **fork**: `boolean`
+
+Snapshot plus restore into a sibling guest, live.
+
+##### restore
+
+> **restore**: `boolean`
+
+Restore a snapshot bundle into a new guest.
+
+##### clone
+
+> **clone**: `boolean`
+
+Cold clone of a stopped image with a fresh machine identity.
+
+##### mounts
+
+> **mounts**: `boolean`
+
+Host directory sharing.
+
+##### portForward
+
+> **portForward**: `boolean`
+
+Host to guest port forwarding.
+
+##### memoryStats
+
+> **memoryStats**: `boolean`
+
+Guest memory counters.
+
+##### suspend
+
+> **suspend**: `boolean`
+
+Same-host suspend and resume.
+
+##### install
+
+> **install**: `boolean`
+
+Guest OS installation from a vendor image.
+
+***
+
+### GuestProviderInfo
+
+Registry and API metadata for a guest. All fields optional on read.
+
+#### Properties
+
+##### guestOS
+
+> **guestOS**: [`GuestOS`](#guestos-1)
+
+##### provider
+
+> **provider**: [`ProviderId`](#providerid)
+
+##### capabilities
+
+> **capabilities**: [`GuestCapabilities`](#guestcapabilities)
+
+##### providerRef?
+
+> `optional` **providerRef?**: `string`
+
+Opaque provider-side reference. For the macOS provider this is the
+absolute path of the prepared VM bundle, which is what the runner
+needs to reload the same guest.
+
+***
+
 ### ProvisionOptions
 
 #### Properties
@@ -3153,6 +3364,38 @@ can read the same counters its boot-owned sibling sees. Undefined
 for VMMs launched outside the runtime (which never received the
 env var).
 
+##### guestOS?
+
+> `optional` **guestOS?**: [`GuestOS`](#guestos-1)
+
+Guest OS this entry runs. Absent means `linux`, which covers every
+entry written before macOS guests existed, so readers must default
+rather than require it.
+
+##### provider?
+
+> `optional` **provider?**: [`ProviderId`](#providerid)
+
+Host-side provider that owns the guest. `machinen-hvf` and
+`machinen-kvm` are the in-repo microVM monitor; `apple-vz` is the
+Swift runner. Separate from `guestOS` so a Darwin host running a
+Linux guest stays distinguishable from a macOS guest.
+
+##### providerRef?
+
+> `optional` **providerRef?**: `string`
+
+Provider-side reference needed to reload this guest. For `apple-vz`
+it is the absolute prepared-bundle path. Never holds secrets.
+
+##### capabilities?
+
+> `optional` **capabilities?**: [`GuestCapabilities`](#guestcapabilities)
+
+What the owning provider actually implements, captured at boot so an
+`attach()` from another process can refuse unsupported operations
+without re-probing. Absent means Linux defaults.
+
 ##### lazyPagesTotal?
 
 > `optional` **lazyPagesTotal?**: `number`
@@ -3626,7 +3869,7 @@ Supported on both boot-owned and attach handles.
 
 ##### memoryStats()
 
-> **memoryStats**(): `Promise`\<[`MemoryStats`](#memorystats-1)\>
+> **memoryStats**(): `Promise`\<[`MemoryStats`](#memorystats-2)\>
 
 Read the host's view of this VM's memory: the ceiling the VMM was
 sized at, the host RSS the VMM is currently holding, the bytes
@@ -3657,7 +3900,7 @@ Pure read, no side effects. The numbers come from:
 
 ###### Returns
 
-`Promise`\<[`MemoryStats`](#memorystats-1)\>
+`Promise`\<[`MemoryStats`](#memorystats-2)\>
 
 ##### fork()
 
@@ -4232,7 +4475,7 @@ the same bind. Pass explicitly when the fork needs forwards.
 
 ###### Overrides
 
-[`BootOptions`](#bootoptions).[`portForward`](#portforward-2)
+[`BootOptions`](#bootoptions).[`portForward`](#portforward-3)
 
 ##### timeoutMs?
 
@@ -4631,6 +4874,48 @@ the registry entry stays live, the vsock UDS is still listening.
 
 [`BootOptions`](#bootoptions).[`detached`](#detached-1)
 
+##### guestOS?
+
+> `optional` **guestOS?**: [`GuestOS`](#guestos-1)
+
+Guest operating system to run. Defaults to `"linux"`, which is the
+only behavior every existing caller gets.
+
+`"macos"` selects the `apple-vz` provider: a prepared macOS VM bundle
+booted by the signed Swift runner, with SSH as the guest transport.
+That path skips Linux asset resolution entirely — no kernel, DTB,
+initramfs, ext4 rootdisk, gvproxy, or vsock setup runs.
+
+macOS guests cannot be snapshotted, forked, or restored, and their
+PTY is a per-connection SSH PTY rather than a Machinen persistent
+session. Those calls fail with `PROVIDER_UNSUPPORTED_OPERATION`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`guestOS`](#guestos-5)
+
+##### provider?
+
+> `optional` **provider?**: [`ProviderId`](#providerid)
+
+Explicit provider override. Omit it and the provider follows from
+`guestOS` and the host, which preserves the pre-existing Linux
+selection exactly.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`provider`](#provider-4)
+
+##### macos?
+
+> `optional` **macos?**: [`MacosBootOptions`](#macosbootoptions)
+
+macOS provider configuration. Required when `guestOS` is `"macos"`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`macos`](#macos-1)
+
 ##### image?
 
 > `optional` **image?**: `string`
@@ -4673,6 +4958,20 @@ Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
 not available on attach handles (it belongs to the process that
 called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
+
+##### identityFile?
+
+> `optional` **identityFile?**: `string`
+
+SSH identity file for a macOS guest. Not persisted in the registry,
+so an attach handle needs it supplied again. Falls back to
+`MACHINEN_MACOS_SSH_KEY`.
+
+##### sshUser?
+
+> `optional` **sshUser?**: `string`
+
+SSH user for a macOS guest. Defaults to the persisted endpoint user.
 
 ***
 
@@ -5023,6 +5322,36 @@ hook. After detach the parent is gone, so those leak until
 Reattach with `attach({ name | pid })` from another process —
 the registry entry stays live, the vsock UDS is still listening.
 
+##### guestOS?
+
+> `optional` **guestOS?**: [`GuestOS`](#guestos-1)
+
+Guest operating system to run. Defaults to `"linux"`, which is the
+only behavior every existing caller gets.
+
+`"macos"` selects the `apple-vz` provider: a prepared macOS VM bundle
+booted by the signed Swift runner, with SSH as the guest transport.
+That path skips Linux asset resolution entirely — no kernel, DTB,
+initramfs, ext4 rootdisk, gvproxy, or vsock setup runs.
+
+macOS guests cannot be snapshotted, forked, or restored, and their
+PTY is a per-connection SSH PTY rather than a Machinen persistent
+session. Those calls fail with `PROVIDER_UNSUPPORTED_OPERATION`.
+
+##### provider?
+
+> `optional` **provider?**: [`ProviderId`](#providerid)
+
+Explicit provider override. Omit it and the provider follows from
+`guestOS` and the host, which preserves the pre-existing Linux
+selection exactly.
+
+##### macos?
+
+> `optional` **macos?**: [`MacosBootOptions`](#macosbootoptions)
+
+macOS provider configuration. Required when `guestOS` is `"macos"`.
+
 ***
 
 ### BootCpuResourceOptions
@@ -5300,7 +5629,7 @@ default `127.0.0.1`) to `guestPort` inside the guest.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`portForward`](#portforward-2)
+[`BootOptions`](#bootoptions).[`portForward`](#portforward-3)
 
 ##### binary?
 
@@ -5498,6 +5827,48 @@ the registry entry stays live, the vsock UDS is still listening.
 
 [`BootOptions`](#bootoptions).[`detached`](#detached-1)
 
+##### guestOS?
+
+> `optional` **guestOS?**: [`GuestOS`](#guestos-1)
+
+Guest operating system to run. Defaults to `"linux"`, which is the
+only behavior every existing caller gets.
+
+`"macos"` selects the `apple-vz` provider: a prepared macOS VM bundle
+booted by the signed Swift runner, with SSH as the guest transport.
+That path skips Linux asset resolution entirely — no kernel, DTB,
+initramfs, ext4 rootdisk, gvproxy, or vsock setup runs.
+
+macOS guests cannot be snapshotted, forked, or restored, and their
+PTY is a per-connection SSH PTY rather than a Machinen persistent
+session. Those calls fail with `PROVIDER_UNSUPPORTED_OPERATION`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`guestOS`](#guestos-5)
+
+##### provider?
+
+> `optional` **provider?**: [`ProviderId`](#providerid)
+
+Explicit provider override. Omit it and the provider follows from
+`guestOS` and the host, which preserves the pre-existing Linux
+selection exactly.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`provider`](#provider-4)
+
+##### macos?
+
+> `optional` **macos?**: [`MacosBootOptions`](#macosbootoptions)
+
+macOS provider configuration. Required when `guestOS` is `"macos"`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`macos`](#macos-1)
+
 ##### snapDir
 
 > **snapDir**: `string`
@@ -5605,6 +5976,36 @@ Poll interval in ms while retrying. Default 250.
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
 
 Result of `validatePid` — easy to switch on at the call site.
+
+***
+
+### MacosSource
+
+> **MacosSource** = `object`
+
+#### Properties
+
+##### kind
+
+> **kind**: `"prepared-bundle"`
+
+##### path
+
+> **path**: `string`
+
+Absolute or cwd-relative path to the bundle directory.
+
+***
+
+### GuestOS
+
+> **GuestOS** = `"linux"` \| `"macos"`
+
+***
+
+### ProviderId
+
+> **ProviderId** = `"machinen-hvf"` \| `"machinen-kvm"` \| `"apple-vz"`
 
 ***
 
@@ -5860,6 +6261,26 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### REGISTRY\_NAME\_IN\_USE
 
 > `readonly` **REGISTRY\_NAME\_IN\_USE**: `"REGISTRY_NAME_IN_USE"` = `"REGISTRY_NAME_IN_USE"`
+
+##### PROVIDER\_UNSUPPORTED\_OPERATION
+
+> `readonly` **PROVIDER\_UNSUPPORTED\_OPERATION**: `"PROVIDER_UNSUPPORTED_OPERATION"` = `"PROVIDER_UNSUPPORTED_OPERATION"`
+
+##### PROVIDER\_HOST\_UNSUPPORTED
+
+> `readonly` **PROVIDER\_HOST\_UNSUPPORTED**: `"PROVIDER_HOST_UNSUPPORTED"` = `"PROVIDER_HOST_UNSUPPORTED"`
+
+##### PROVIDER\_IMAGE\_INVALID
+
+> `readonly` **PROVIDER\_IMAGE\_INVALID**: `"PROVIDER_IMAGE_INVALID"` = `"PROVIDER_IMAGE_INVALID"`
+
+##### PROVIDER\_READINESS\_FAILED
+
+> `readonly` **PROVIDER\_READINESS\_FAILED**: `"PROVIDER_READINESS_FAILED"` = `"PROVIDER_READINESS_FAILED"`
+
+##### PROVIDER\_TRANSPORT\_FAILED
+
+> `readonly` **PROVIDER\_TRANSPORT\_FAILED**: `"PROVIDER_TRANSPORT_FAILED"` = `"PROVIDER_TRANSPORT_FAILED"`
 
 ##### FILES\_HOST\_DIR\_NOT\_FOUND
 
@@ -6219,6 +6640,34 @@ loops; anything looser stops being a meaningful gate.
 ### MOVE\_REFUSAL\_CODE
 
 > `const` **MOVE\_REFUSAL\_CODE**: `"move-unproven-state-class"`
+
+***
+
+### LINUX\_CAPABILITIES
+
+> `const` **LINUX\_CAPABILITIES**: [`GuestCapabilities`](#guestcapabilities)
+
+***
+
+### MACOS\_CAPABILITIES
+
+> `const` **MACOS\_CAPABILITIES**: [`GuestCapabilities`](#guestcapabilities)
+
+The macOS MVP over a prepared bundle. Everything that depends on guest
+memory state or a Linux guest agent is false, so those calls refuse
+rather than pretend.
+
+***
+
+### GUEST\_OS\_VALUES
+
+> `const` **GUEST\_OS\_VALUES**: readonly [`GuestOS`](#guestos-1)[]
+
+***
+
+### PROVIDER\_VALUES
+
+> `const` **PROVIDER\_VALUES**: readonly [`ProviderId`](#providerid)[]
 
 ***
 
@@ -7068,6 +7517,71 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 `Map`\<`number`, `number`\>
+
+***
+
+### resolveGuestOS()
+
+> **resolveGuestOS**(`value`): [`GuestOS`](#guestos-1)
+
+Resolve the guest OS. Absent means `linux`, which is what every caller
+and every pre-existing registry entry means today.
+
+#### Parameters
+
+##### value
+
+`string`
+
+#### Returns
+
+[`GuestOS`](#guestos-1)
+
+***
+
+### resolveProviderId()
+
+> **resolveProviderId**(`guestOS`, `value`): [`ProviderId`](#providerid)
+
+Resolve the provider. When the caller names one, it wins. Otherwise the
+provider follows from the guest OS and the host, which keeps Linux
+selection exactly as it was before this module existed.
+
+#### Parameters
+
+##### guestOS
+
+[`GuestOS`](#guestos-1)
+
+##### value
+
+`string`
+
+#### Returns
+
+[`ProviderId`](#providerid)
+
+***
+
+### selectProvider()
+
+> **selectProvider**(`opts`): [`ProviderSelection`](#providerselection)
+
+#### Parameters
+
+##### opts
+
+###### guestOS?
+
+`string`
+
+###### provider?
+
+`string`
+
+#### Returns
+
+[`ProviderSelection`](#providerselection)
 
 ***
 
